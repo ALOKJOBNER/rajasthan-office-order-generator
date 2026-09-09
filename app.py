@@ -181,7 +181,7 @@ def generate_sun_rays_svg():
 
 rays_svg_html = generate_sun_rays_svg()
 
-# पूर्ण अचूक CSS: सभी बटन्स, रेडियो लेबल्स और एक्सपेंडर्स की टेक्स्ट विजिबिलिटी समस्या का स्थायी समाधान
+# अचूक CSS: सभी प्रकार के बटन्स (फॉर्म, नॉर्मल, डिलीट, सेव, रीसेट) और रेडियो टेक्स्ट का रंग सही करना
 st.markdown("""
 <style>
     .stApp { background-color: #0c1d36; color: #ffffff; }
@@ -246,8 +246,8 @@ st.markdown("""
         line-height: 1.6;
     }
 
-    /* सभी सामान्य लेबल्स और रेडियो बटन के टेक्स्ट को पीला/सफेद एवं स्पष्ट करना */
-    label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span, .stRadio label p {
+    /* सभी लेबल्स और रेडियो बटन्स के टेक्स्ट को स्पष्ट पीला/सफेद रखना */
+    label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span, .stRadio label p, div[data-baseweb="radio"] div {
         color: #f4d03f !important;
         font-size: 14.5px !important;
         font-weight: bold !important;
@@ -263,7 +263,7 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* एक्सपेंडर हेडर बार को डार्क और स्पष्ट रखना ताकि सफेद न हो */
+    /* एक्सपेंडर */
     [data-testid="stExpander"] {
         background-color: #132743 !important;
         border: 1px solid #f4d03f !important;
@@ -273,8 +273,6 @@ st.markdown("""
         color: #f4d03f !important;
         font-weight: bold !important;
     }
-
-    /* एक्सपेंडर के अंदर के टेक्स्ट एरिया (JSON मास्टर डेटा) */
     .stExpander textarea {
         background-color: #0c1d36 !important;
         color: #2ecc71 !important;
@@ -317,31 +315,29 @@ st.markdown("""
     .back-btn:hover { background-color: #e74c3c; }
 
     /* ========================================================== */
-    /* समस्त सामान्य बटन्स (जैसे डिलीट, रीसेट, सेव) का टेक्स्ट रंग ठीक करना */
+    /* यूनिवर्सल बटन कलर फिक्स: स्ट्रीमलिट के सभी बटन्स को जबरन रंगीन व पाठ्य बनाना */
     /* ========================================================== */
-    div.stButton > button {
+    button, div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
         background-color: #2980b9 !important;
         color: #ffffff !important;
         font-weight: bold !important;
         border: 2px solid #3498db !important;
         border-radius: 6px !important;
         box-shadow: 0 4px 0 #1b4f72 !important;
-        width: 100% !important;
-        padding: 8px 14px !important;
     }
-    div.stButton > button * {
+    button *, div.stButton > button *, div[data-testid="stFormSubmitButton"] > button * {
         color: #ffffff !important;
         font-weight: bold !important;
     }
 
-    /* विशेष बटन: डिलीट (लाल रंग) */
-    div.stButton:nth-of-type(1) > button {
-        background-color: #c0392b !important;
-        border-color: #e74c3c !important;
-        box-shadow: 0 4px 0 #922b21 !important;
+    /* फॉर्म सबमिट बटन (हरा रंग) */
+    div[data-testid="stFormSubmitButton"] > button {
+        background-color: #27ae60 !important;
+        border-color: #2ecc71 !important;
+        box-shadow: 0 4px 0 #1e8449 !important;
     }
 
-    /* मुख्य डाउनलोड/आदेश जनरेट करें बटन (नारंगी रंग) */
+    /* डाउनलोड / आदेश जनरेट बटन (नारंगी रंग) */
     div[data-testid="stDownloadButton"] > button {
         background-color: #d35400 !important;
         border: 2px solid #e67e22 !important;
@@ -902,7 +898,7 @@ elif active_page == "sanchalan_portal":
     </div>
     """, unsafe_allow_html=True)
 
-    # मास्टर डेटा प्रबंधन एक्सपेंडर (सफेद बैकग्राउंड और टेक्स्ट क्लैश समस्या पूरी तरह हल)
+    # मास्टर डेटा प्रबंधन एक्सपेंडर (पूर्णतः दृश्यमान टेक्स्ट और बटन्स के साथ)
     with st.expander("⚙️ मास्टर डेटा प्रबंधन (स्कूल, वेंडर और 29 एम्प्लॉयीज बेनिफिशियरी देखें/बदले)"):
         st.markdown("<span style='color: #f4d03f; font-weight: bold;'>आप यहाँ अपनी आवश्यकतानुसार मास्टर डेटा JSON प्रारूप में अपडेट कर सकते हैं:</span>", unsafe_allow_html=True)
         
@@ -957,7 +953,6 @@ elif active_page == "sanchalan_portal":
         san_inst = st.selectbox("संस्था का नाम:", school_list, key="w_san_inst")
         san_firm = st.selectbox("फर्म/प्राप्तकर्ता का नाम:", list(vendor_dict.keys()), key="w_san_firm")
     with r_col2:
-        # स्पष्ट रूप से दिखने वाले रेडियो विकल्प (No / Yes)
         san_reimb = st.radio("पुनर्भरण (Reimbursement):", ["No (नहीं)", "Yes (हाँ)"], horizontal=True, key="w_san_reimb_radio")
         
         san_ben = ""
@@ -1072,7 +1067,7 @@ elif active_page == "sanchalan_portal":
 
         summary_html = """
         <div style="margin-top: 10px; font-size: 11px;">
-            <b>समेकित कंपोनेंट-वार योग (Component-wise Total Summary):</b>
+            <b>समेक्षित कंपोनेंट-वार योग (Component-wise Total Summary):</b>
             <table style="width: 100%; margin-top: 5px;">
                 <tr>
                     <th>स्तर (Level)</th>
@@ -1201,7 +1196,7 @@ elif active_page == "sanchalan_portal":
             <style>
                 @page {{ size: A4 landscape; margin: 6mm; }}
                 body {{ font-family: 'Arial', sans-serif; margin: 0; padding: 0; background: #fff; color: #000; }}
-                .page-box {{ border: 3px solid black; padding: 12px 15px; width: 100%; box-sizing: border-box; page-break-after: always; min-height: 92vh; position: relative; }}
+                .page-box {{ border: 3px solid black; padding: 12px 15px; width: 100%; box-sizing: border-box; min-height: 92vh; position: relative; }}
                 .header {{ text-align: center; font-weight: bold; margin-bottom: 5px; }}
                 .header h3, .header h2, .header h4 {{ margin: 2px 0; }}
                 table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
@@ -1244,7 +1239,7 @@ elif active_page == "sanchalan_portal":
             <div class='page-box'>
                 <table>
                     <tr>
-                        <th>क.स.</th><th>संस्था का नाम</th><th>फर्म का नाम / प्राप्तकर्ता</th>
+                        <th>ค.स.</th><th>संस्था का नाम</th><th>फर्म का नाम / प्राप्तकर्ता</th>
                         <th>खाता संख्या व IFSC कोड / विशिष्ट टिप्पणी</th><th>बिल/वाउचर सं. एवं दिनांक</th>
                         <th>राशि (₹)</th><th>पुनर्भरण</th><th>कंपोनेंट व स्तर (SEC/ELE)</th>
                     </tr>
