@@ -15,20 +15,42 @@ st.set_page_config(
 # 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक
 PL_DATA_FILE = os.path.join("output", "saved_pl_data.json")
 INC_DATA_FILE = os.path.join("output", "saved_increment_data.json")
+SAN_DATA_FILE = os.path.join("output", "saved_sanchalan_data.json")
+MASTER_VENDORS_FILE = "master_vendors.json"
+MASTER_SCHOOLS_FILE = "master_schools.json"
+MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
 
-def load_json_data(file_path):
+def load_json_data(file_path, default_val=None):
+    if default_val is None:
+        default_val = {"office_data": {}, "employees": []}
     if os.path.exists(file_path):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
-            return {"office_data": {}, "employees": []}
-    return {"office_data": {}, "employees": []}
+            return default_val
+    return default_val
 
-def save_json_data(file_path, office_data, employees):
+def save_json_data(file_path, data):
     os.makedirs("output", exist_ok=True)
     with open(file_path, "w", encoding="utf-8") as f:
-        json.dump({"office_data": office_data, "employees": employees}, f, ensure_ascii=False, indent=2)
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_json_file(filename, default_val):
+    if os.path.exists(filename):
+        try:
+            with open(filename, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return default_val
+    return default_val
+
+def save_json_file(filename, data):
+    try:
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
 
 # 3. ग्लोबल डेटा डेफिनिशन
 DESIG_LIST = [
@@ -64,6 +86,32 @@ PAY_MATRIX_7TH = {
     "L-18": [75300, 77600, 79900, 82300, 84800, 87300, 89900, 92600, 95400, 98300, 101200, 104200, 107300, 110500, 113800, 117200, 120700, 124300, 128000, 131800, 135800, 139900, 144100, 148400, 152900, 157500, 162200, 167100, 172100, 177300, 182600, 188100, 193700, 199500, 199500, 199500, 199500, 199500, 199500, 199500]
 }
 
+SNA_COMPONENTS = {
+    "SEC": [
+        "ICT Lab & Smart Class (आई.सी.टी. लैब एवं स्मार्ट क्लास)",
+        "Library Books & Grants (पुस्तकालय पुस्तकें एवं अनुदान)",
+        "School Maintenance & Repair (विद्यालय रखरखाव एवं मरम्मत)",
+        "Civil Works & Minor Repair (सिविल कार्य एवं लघु मरम्मत)",
+        "Composite School Grant (कंपोजिट स्कूल ग्रांट)",
+        "Sports & Physical Education (खेलकूद एवं शारीरिक शिक्षा)",
+        "Grants for Special Training (विशेष प्रशिक्षण अनुदान)",
+        "Media & Publicity (मीडिया एवं प्रचार-प्रसार)",
+        "Other Component (अन्य कंपोनेंट)"
+    ],
+    "ELE": [
+        "Free Textbooks (निःशुल्क पाठ्यपुस्तकें)",
+        "School Uniforms (निःशुल्क गणवेश/यूनिफॉर्म)",
+        "Library Books & Grants (पुस्तकालय पुस्तकें एवं अनुदान)",
+        "School Maintenance & Repair (विद्यालय रखरखाव एवं मरम्मत)",
+        "Civil Works & Minor Repair (सिविल कार्य एवं लघु मरम्मत)",
+        "Composite School Grant (कंपोजिट स्कूल ग्रांट)",
+        "Sports & Physical Education (खेलकूद एवं शारीरिक शिक्षा)",
+        "Grants for Special Training (विशेष प्रशिक्षण अनुदान)",
+        "Media & Publicity (मीडिया एवं प्रचार-प्रसार)",
+        "Other Component (अन्य कंपोनेंट)"
+    ]
+}
+
 def get_calculated_next_pay(comm, lvl, cur_b):
     if "7th" in comm:
         col = PAY_MATRIX_7TH.get(lvl, [])
@@ -81,6 +129,14 @@ def get_calculated_next_pay(comm, lvl, cur_b):
         return (cur_b + inc) if rem == 0 else (cur_b + inc + (10 - rem))
     else:
         return cur_b + round(cur_b * 0.03)
+
+def make_short_name(full_name):
+    if not full_name:
+        return ""
+    replaced = full_name.replace("राजकीय उच्च माध्यमिक विद्यालय", "रा.उ.मा.वि.")
+    replaced = replaced.replace("राजकीय उच्च प्राथमिक विद्यालय", "रा.उ.प्रा.वि.")
+    replaced = replaced.replace("पंचायत समिति", "प.स.")
+    return replaced
 
 def get_image_base64():
     for ext in [".jpg", ".png", ".jpeg", ".JPG", ".PNG"]:
@@ -125,7 +181,7 @@ def generate_sun_rays_svg():
 
 rays_svg_html = generate_sun_rays_svg()
 
-# यूनिवर्सल CSS: सभी बटनों को पूर्ण रंगीन एवं दृश्यमान बनाना
+# पूर्ण अचूक CSS: सभी बटन्स, रेडियो लेबल्स और एक्सपेंडर्स की टेक्स्ट विजिबिलिटी समस्या का स्थायी समाधान
 st.markdown("""
 <style>
     .stApp { background-color: #0c1d36; color: #ffffff; }
@@ -190,16 +246,16 @@ st.markdown("""
         line-height: 1.6;
     }
 
-    /* सभी लेबल्स */
-    label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span {
+    /* सभी सामान्य लेबल्स और रेडियो बटन के टेक्स्ट को पीला/सफेद एवं स्पष्ट करना */
+    label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span, .stRadio label p {
         color: #f4d03f !important;
         font-size: 14.5px !important;
         font-weight: bold !important;
         opacity: 1 !important;
     }
 
-    /* इनपुट बॉक्स */
-    input, select, [data-baseweb="select"] {
+    /* इनपुट, सेलेक्ट और टेक्स्ट एरिया */
+    input, select, textarea, [data-baseweb="select"], [data-baseweb="textarea"] {
         background-color: #1c3b60 !important;
         color: #ffffff !important;
         font-weight: bold !important;
@@ -207,7 +263,25 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* 3D मेनू बटन */
+    /* एक्सपेंडर हेडर बार को डार्क और स्पष्ट रखना ताकि सफेद न हो */
+    [data-testid="stExpander"] {
+        background-color: #132743 !important;
+        border: 1px solid #f4d03f !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stExpander"] summary span {
+        color: #f4d03f !important;
+        font-weight: bold !important;
+    }
+
+    /* एक्सपेंडर के अंदर के टेक्स्ट एरिया (JSON मास्टर डेटा) */
+    .stExpander textarea {
+        background-color: #0c1d36 !important;
+        color: #2ecc71 !important;
+        font-family: monospace !important;
+        font-size: 12.5px !important;
+    }
+
     .menu-btn-pl {
         display: block; width: 100%; background-color: #1f618d; color: #ffffff !important;
         text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
@@ -221,6 +295,13 @@ st.markdown("""
         border-radius: 8px; border: 2px solid #2ecc71; box-shadow: 0 5px 0 #1e8449; margin-bottom: 14px; text-align: left;
     }
     .menu-btn-inc:hover { background-color: #2ecc71; }
+
+    .menu-btn-san {
+        display: block; width: 100%; background-color: #8e44ad; color: #ffffff !important;
+        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
+        border-radius: 8px; border: 2px solid #9b59b6; box-shadow: 0 5px 0 #512e5f; margin-bottom: 14px; text-align: left;
+    }
+    .menu-btn-san:hover { background-color: #9b59b6; }
 
     .menu-btn-rel {
         display: block; width: 100%; background-color: #212f3d; color: #a6acaf !important;
@@ -236,53 +317,33 @@ st.markdown("""
     .back-btn:hover { background-color: #e74c3c; }
 
     /* ========================================================== */
-    /* सभी एक्शन बटनों को जबरन रंगीन बनाना (सफेद बटन की छुट्टी) */
+    /* समस्त सामान्य बटन्स (जैसे डिलीट, रीसेट, सेव) का टेक्स्ट रंग ठीक करना */
     /* ========================================================== */
-    
-    /* 1. हरा बटन (कर्मचारी जोड़ें) */
-    div[data-testid="stFormSubmitButton"] > button {
-        background-color: #27ae60 !important;
-        background: #27ae60 !important;
-        border: 2px solid #2ecc71 !important;
-        box-shadow: 0 4px 0 #1e8449 !important;
-        width: 100% !important;
-        padding: 12px !important;
-    }
-    div[data-testid="stFormSubmitButton"] > button * {
+    div.stButton > button {
+        background-color: #2980b9 !important;
         color: #ffffff !important;
-        font-size: 16px !important;
+        font-weight: bold !important;
+        border: 2px solid #3498db !important;
+        border-radius: 6px !important;
+        box-shadow: 0 4px 0 #1b4f72 !important;
+        width: 100% !important;
+        padding: 8px 14px !important;
+    }
+    div.stButton > button * {
+        color: #ffffff !important;
         font-weight: bold !important;
     }
-    div[data-testid="stFormSubmitButton"] > button:hover { background-color: #2ecc71 !important; }
 
-    /* 2. लाल बटन (चयनित हटाएं) - Streamlit सामान्य बटन ओवरराइड */
+    /* विशेष बटन: डिलीट (लाल रंग) */
     div.stButton:nth-of-type(1) > button {
         background-color: #c0392b !important;
-        background: #c0392b !important;
-        color: #ffffff !important;
-        border: 2px solid #e74c3c !important;
+        border-color: #e74c3c !important;
         box-shadow: 0 4px 0 #922b21 !important;
     }
 
-    /* 3. ग्रे बटन (सूची खाली करें) */
-    div.stButton:nth-of-type(2) > button {
-        background-color: #7f8c8d !important;
-        background: #7f8c8d !important;
-        color: #ffffff !important;
-        border: 2px solid #95a5a6 !important;
-        box-shadow: 0 4px 0 #616a6b !important;
-    }
-
-    /* यूनिवर्सल बटन टेक्स्ट सुरक्षा */
-    div.stButton > button, div.stButton > button * {
-        color: #ffffff !important;
-        font-weight: bold !important;
-    }
-
-    /* 4. नारंगी बटन (आदेश जनरेट करें) */
+    /* मुख्य डाउनलोड/आदेश जनरेट करें बटन (नारंगी रंग) */
     div[data-testid="stDownloadButton"] > button {
         background-color: #d35400 !important;
-        background: #d35400 !important;
         border: 2px solid #e67e22 !important;
         border-radius: 8px !important;
         box-shadow: 0 6px 0 #a04000 !important;
@@ -295,9 +356,7 @@ st.markdown("""
         font-size: 17px !important;
         font-weight: 800 !important;
     }
-    div[data-testid="stDownloadButton"] > button:hover { background-color: #e67e22 !important; }
 
-    /* टेबल स्टाइल */
     .custom-table {
         width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px;
     }
@@ -310,7 +369,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 7. स्क्रीन नेविगेशन
 params = st.query_params
 active_page = params.get("page", "dashboard")
 
@@ -352,7 +410,7 @@ if active_page == "dashboard":
         st.markdown("""
         <div class="scope-box">
             <span style="color: #f4d03f; font-weight: bold; font-size: 15px;">सॉफ्टवेयर के कार्य एवं भावी विस्तार योजना:</span><br>
-            <span style="color: #2ecc71;">✔ वर्तमान क्षमताएं:</span> उपार्जित अवकाश (PL Surrender) की सटीक नियमानुसार ऑटो-कैलकुलेशन, वार्षिक सामयिक वेतन वृद्धि (Annual Increment - जनवरी एवं जुलाई चक्र) आदेश 7th CPC पे-मैट्रिक्स अनुसार स्वतः गणना, मल्टीपल कार्मिक प्रविष्टि, A4 सटीक बॉर्डर प्रिंट आदेश।<br>
+            <span style="color: #2ecc71;">✔ वर्तमान क्षमताएं:</span> उपार्जित अवकाश (PL Surrender) की सटीक नियमानुसार ऑटो-कैलकुलेशन, वार्षिक सामयिक वेतन वृद्धि (Annual Increment - जनवरी एवं जुलाई चक्र) आदेश 7th पे-मैट्रिक्स स्वतः गणना, संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Payment Sanction Order), मल्टीपल कार्मिक/वेंडर प्रविष्टि, लैंडस्केप व पोर्ट्रेट सटीक बॉर्डर प्रिंट आदेश[cite: 5].<br>
             <span style="color: #f39c12;">🚀 भविष्य में संभावित कार्य:</span> कार्यमुक्ति (Relieving) व कार्यग्रहण (Joining) आदेश, बाल देखरेख अवकाश (CCL) स्वीकृति, स्थायीकरण (Confirmation) आदेश तथा समस्त वित्तीय व प्रशासनिक स्वीकृतियों का केंद्रीकृत स्वचालन।
         </div>
         """, unsafe_allow_html=True)
@@ -366,8 +424,11 @@ if active_page == "dashboard":
         <a href="/?page=increment_order" target="_self" class="menu-btn-inc">
             2. वार्षिक सामयिक वेतन वृद्धि (Annual Increment) आदेश जनरेटर ▶
         </a>
+        <a href="/?page=sanchalan_portal" target="_self" class="menu-btn-san">
+            3. संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order) जनरेटर ▶
+        </a>
         <div class="menu-btn-rel">
-            3. कार्यमुक्ति / कार्यग्रहण (Relieving / Joining) आदेश [शीघ्र उपलब्ध]
+            4. कार्यमुक्ति / कार्यग्रहण (Relieving / Joining) आदेश [शीघ्र उपलब्ध]
         </div>
         """, unsafe_allow_html=True)
 
@@ -464,7 +525,7 @@ elif active_page == "pl_surrender":
                     "pay_month_name": pl_month.strip(), "order_no": pl_order_no.strip(),
                     "sub_treasury": pl_treasury.strip()
                 }
-                save_json_data(PL_DATA_FILE, cur_off, st.session_state.pl_employees)
+                save_json_data(PL_DATA_FILE, {"office_data": cur_off, "employees": st.session_state.pl_employees})
                 st.success(f"कार्मिक '{pl_emp_name}' तालिका में जुड़ गया है!")
                 st.rerun()
 
@@ -498,7 +559,7 @@ elif active_page == "pl_surrender":
                     "pay_month_name": pl_month.strip(), "order_no": pl_order_no.strip(),
                     "sub_treasury": pl_treasury.strip()
                 }
-                save_json_data(PL_DATA_FILE, cur_off, st.session_state.pl_employees)
+                save_json_data(PL_DATA_FILE, {"office_data": cur_off, "employees": st.session_state.pl_employees})
                 st.rerun()
         with b_col2:
             st.write("")
@@ -510,7 +571,7 @@ elif active_page == "pl_surrender":
                     "pay_month_name": pl_month.strip(), "order_no": pl_order_no.strip(),
                     "sub_treasury": pl_treasury.strip()
                 }
-                save_json_data(PL_DATA_FILE, cur_off, [])
+                save_json_data(PL_DATA_FILE, {"office_data": cur_off, "employees": []})
                 st.rerun()
 
         t_rows = ""
@@ -531,11 +592,11 @@ elif active_page == "pl_surrender":
           @page {{ size: A4 portrait; margin: 8mm 8mm 12mm 8mm; }}
           body {{ font-family: 'Noto Sans Devanagari', Arial, sans-serif; font-size: 10.5pt; color: #000; margin:0; padding:0; }}
           .page-box {{ border: 2px solid #000; padding: 14px 18px; min-height: calc(100vh - 22mm); }}
-          .office-header {{ text-align: center; margin-bottom: 6px; }}
+          .office-header {{ text-align: center; margin-bottom: 6mm; }}
           .office-title {{ font-size: 15pt; font-weight: bold; text-decoration: underline; margin-bottom: 4px; }}
           .order-title {{ font-size: 13pt; font-weight: bold; margin-bottom: 10px; }}
           .order-body {{ text-align: justify; text-indent: 35px; font-size: 10.5pt; line-height: 1.65; margin-bottom: 10px; }}
-          table {{ width: 100%; border-collapse: collapse; margin: 6px 0 12px 0; font-size: 9pt; }}
+          table {{ width: 100%; border-collapse: collapse; margin: 6px 0 12mm 0; font-size: 9pt; }}
           th, td {{ border: 1px solid #000; padding: 4px 2px; text-align: center; }}
           th {{ background-color: #f2f2f2; font-weight: bold; }}
           .cert-text {{ font-size: 10pt; line-height: 1.55; margin: 10px 0 8px 0; text-align: justify; }}
@@ -676,7 +737,7 @@ elif active_page == "increment_order":
                     "inc_cycle": inc_cycle.strip(), "order_no": inc_order_no.strip(),
                     "sub_treasury": inc_treasury.strip()
                 }
-                save_json_data(INC_DATA_FILE, cur_off, st.session_state.inc_employees)
+                save_json_data(INC_DATA_FILE, {"office_data": cur_off, "employees": st.session_state.inc_employees})
                 st.success(f"कार्मिक '{inc_emp_name}' सूची में जुड़ गया है!")
                 st.rerun()
 
@@ -702,7 +763,6 @@ elif active_page == "increment_order":
         ib_col1, ib_col2 = st.columns(2)
         with ib_col1:
             del_inc_idx = st.selectbox("हटाने हेतु कार्मिक चुनें:", range(1, len(st.session_state.inc_employees) + 1), format_func=lambda x: f"{x}. {st.session_state.inc_employees[x-1]['emp_name']}", key="del_inc_sel")
-            st.markdown('<div class="del-btn-container">', unsafe_allow_html=True)
             if st.button("🗑 चयनित कार्मिक हटाएं", key="btn_del_inc"):
                 del st.session_state.inc_employees[del_inc_idx - 1]
                 cur_off = {
@@ -710,13 +770,11 @@ elif active_page == "increment_order":
                     "inc_cycle": inc_cycle.strip(), "order_no": inc_order_no.strip(),
                     "sub_treasury": inc_treasury.strip()
                 }
-                save_json_data(INC_DATA_FILE, cur_off, st.session_state.inc_employees)
+                save_json_data(INC_DATA_FILE, {"office_data": cur_off, "employees": st.session_state.inc_employees})
                 st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
         with ib_col2:
             st.write("")
             st.write("")
-            st.markdown('<div class="clr-btn-container">', unsafe_allow_html=True)
             if st.button("🔄 सूची खाली करें (New Order)", key="btn_clr_inc"):
                 st.session_state.inc_employees = []
                 cur_off = {
@@ -724,9 +782,8 @@ elif active_page == "increment_order":
                     "inc_cycle": inc_cycle.strip(), "order_no": inc_order_no.strip(),
                     "sub_treasury": inc_treasury.strip()
                 }
-                save_json_data(INC_DATA_FILE, cur_off, [])
+                save_json_data(INC_DATA_FILE, {"office_data": cur_off, "employees": []})
                 st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
 
         inc_rows = ""
         for idx, item in enumerate(st.session_state.inc_employees, 1):
@@ -748,11 +805,11 @@ elif active_page == "increment_order":
           @page {{ size: A4 portrait; margin: 8mm 8mm 12mm 8mm; }}
           body {{ font-family: 'Noto Sans Devanagari', Arial, sans-serif; font-size: 10pt; color: #000; margin:0; padding:0; }}
           .page-box {{ border: 2px solid #000; padding: 14px 18px; min-height: calc(100vh - 22mm); }}
-          .office-header {{ text-align: center; margin-bottom: 6px; }}
+          .office-header {{ text-align: center; margin-bottom: 6mm; }}
           .office-title {{ font-size: 15pt; font-weight: bold; text-decoration: underline; margin-bottom: 4px; }}
           .order-title {{ font-size: 13pt; font-weight: bold; margin-bottom: 8px; }}
           .order-body {{ text-align: justify; text-indent: 30px; font-size: 10pt; line-height: 1.6; margin-bottom: 8px; }}
-          table {{ width: 100%; border-collapse: collapse; margin: 6px 0 12px 0; font-size: 9pt; }}
+          table {{ width: 100%; border-collapse: collapse; margin: 6px 0 12mm 0; font-size: 9pt; }}
           th, td {{ border: 1px solid #000; padding: 4px 2px; text-align: center; }}
           th {{ background-color: #f2f2f2; font-weight: bold; }}
           .sub-th {{ font-size: 8pt; font-weight: normal; color: #444; }}
@@ -771,7 +828,7 @@ elif active_page == "increment_order":
           <table><thead><tr><th style='width:4%;'>क्र.सं.</th><th style='width:19%;'>नाम अधिकारी / कार्मिक</th><th style='width:15%;'>पद</th><th style='width:9%;'>स्थायी / अस्थायी</th><th style='width:9%;'>पद का वेतन लेवल</th><th style='width:12%;'>{col6_title}</th><th style='width:10%;'>वर्तमान वेतनवृद्धि की दिनांक</th><th style='width:11%;'>भावी वेतन (₹)</th><th style='width:11%;'>आगामी वेतनवृद्धि की दिनांक</th></tr>
           <tr class='sub-th'><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th></tr></thead><tbody>{inc_rows}</tbody></table>
           <div class='cert-text'>{cert_text}</div>
-          <div class='sig-container'><div class='sig-box'><div class='sig-space'></div><div style='font-weight:bold;'>हस्ताक्षर कार्यालय अध्यक्ष</div><div style='font-size:9pt;(मोहर सहित)</div></div></div>
+          <div class='sig-container'><div class='sig-box'><div class='sig-space'></div><div style='font-weight:bold;'>हस्ताक्षर कार्यालय अध्यक्ष</div><div style='font-size:9pt;'>(मोहर सहित)</div></div></div>
           <div class='dispatch-section'><div class='dispatch-row'><div>क्रमांक: {inc_order_no}</div><div>दिनांक : {inc_order_date.strftime('%d/%m/%Y')}</div></div>
           <div style='font-weight:bold; font-size:9.5pt;'>प्रतिलिपि- सूचनार्थ एवं आवश्यक कार्यवाही हेतु प्रेषित:</div>
           <ol class='copy-list'><li>श्रीमान उपकोषाधिकारी {inc_treasury}।</li><li>लेखा शाखा / संस्थापन शाखा ।</li><li>व्यक्तिगत पंजिका (सम्बन्धित कार्मिक)।</li><li>रक्षित पत्रावली।</li></ol>
@@ -785,5 +842,446 @@ elif active_page == "increment_order":
             label="✨ सामयिक वेतन वृद्धि आदेश जनरेट करें (PDF / Print Preview) 🖨",
             data=inc_html,
             file_name=f"Increment_Order_{inc_year}_{m_txt}.html",
+            mime="text/html"
+        )
+
+# =============================================================================
+# पृष्ठ 4: संचालन पोर्टल भुगतान स्वीकृति आदेश (Sanchalan Portal Sanction) विंडो
+# =============================================================================
+elif active_page == "sanchalan_portal":
+    st.markdown('<a href="/?page=dashboard" target="_self" class="back-btn">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
+
+    if "san_bundle_loaded" not in st.session_state:
+        san_bundle = load_json_data(SAN_DATA_FILE, {"office_data": {}, "items": []})
+        st.session_state.san_office = san_bundle.get("office_data", {})
+        st.session_state.san_items = san_bundle.get("items", [])
+        st.session_state.san_bundle_loaded = True
+
+    saved_san_off = st.session_state.san_office
+
+    schools_data = load_json_file(MASTER_SCHOOLS_FILE, {"schools": ["राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी (GSSS ROJRI)", "राजकीय उच्च प्राथमिक विद्यालय, ढाणी"]})
+    vendors_data = load_json_file(MASTER_VENDORS_FILE, {"vendors": {"UPS SARPANCH KI DHANI": {"bank_name": "SBI", "account": "30389303113", "ifsc": "SBIN0011305"}}})
+    
+    default_beneficiaries = {
+        "DEEWAN SINGH MEENA": {"account": "51069173703", "ifsc": "SBIN0031749", "bank": "STATE BANK OF INDIA"},
+        "ANITA KUMARI": {"account": "51104138727", "ifsc": "SBIN0031340", "bank": "STATE BANK OF INDIA"},
+        "PRABHA SHARMA": {"account": "51069165307", "ifsc": "SBIN0031749", "bank": "STATE BANK OF INDIA"},
+        "Manju Jatav": {"account": "61011477170", "ifsc": "SBIN0031846", "bank": "STATE BANK OF INDIA"},
+        "ALOK KUMAR SINGH": {"account": "30389303113", "ifsc": "SBIN0011305", "bank": "STATE BANK OF INDIA"},
+        "BHAGWAN SAHAI JAT": {"account": "51050538187", "ifsc": "SBIN0031044", "bank": "STATE BANK OF INDIA"},
+        "NARESH KUMAR KUMAWAT": {"account": "51069170496", "ifsc": "SBIN0031749", "bank": "STATE BANK OF INDIA"},
+        "PRAMILA YADAV": {"account": "61032452060", "ifsc": "SBIN0031497", "bank": "STATE BANK OF INDIA"},
+        "SHIMBHU SINGH": {"account": "51106211968", "ifsc": "SBIN0031788", "bank": "STATE BANK OF INDIA"},
+        "PRABHU DAYAL KUMAWAT": {"account": "11346168754", "ifsc": "SBIN0000712", "bank": "STATE BANK OF INDIA"},
+        "RENU BANSAL": {"account": "61236901934", "ifsc": "SBIN0032163", "bank": "STATE BANK OF INDIA"},
+        "VIJENDRA KUMAR JAIMINI": {"account": "51052691600", "ifsc": "SBIN0031039", "bank": "STATE BANK OF INDIA"},
+        "GANGA RAM DUKYA": {"account": "51084183156", "ifsc": "SBIN0031977", "bank": "STATE BANK OF INDIA"},
+        "BHAGWATI SINGH": {"account": "61330346392", "ifsc": "SBIN0063844", "bank": "STATE BANK OF INDIA"},
+        "SUNITA": {"account": "41560532725", "ifsc": "SBIN0031749", "bank": "STATE BANK OF INDIA"},
+        "KANA RAM CHODHARY": {"account": "51111890475", "ifsc": "SBIN0032095", "bank": "STATE BANK OF INDIA"},
+        "RAJENDRA KULHARY": {"account": "35183654160", "ifsc": "SBIN0000712", "bank": "STATE BANK OF INDIA"},
+        "VIJAY PRAKASH SHARMA": {"account": "35831016552", "ifsc": "SBIN0008428", "bank": "STATE BANK OF INDIA"},
+        "RAKESH KUMAR MOURYA": {"account": "52611164325", "ifsc": "SBIN0031976", "bank": "STATE BANK OF INDIA"},
+        "AMIT YADAV": {"account": "61010039544", "ifsc": "SBIN0031854", "bank": "STATE BANK OF INDIA"},
+        "RAHUL KUMAR": {"account": "61157960161", "ifsc": "SBIN0031990", "bank": "STATE BANK OF INDIA"},
+        "MUKESH YADAV": {"account": "41729318680", "ifsc": "SBIN0031976", "bank": "STATE BANK OF INDIA"},
+        "JAYANTI SINGH": {"account": "30374520419", "ifsc": "SBIN0008190", "bank": "STATE BANK OF INDIA"},
+        "UDHISHTER RAJ SHARMA": {"account": "61011477170", "ifsc": "SBIN0031749", "bank": "STATE BANK OF INDIA"},
+        "KIRAN KUMARI": {"account": "51100162639", "ifsc": "SBIN0031795", "bank": "STATE BANK OF INDIA"},
+        "ASHUTOSH SHARMA": {"account": "61205832171", "ifsc": "SBIN0032365", "bank": "STATE BANK OF INDIA"},
+        "SANJEEV KUMAR": {"account": "61057525949", "ifsc": "SBIN0031976", "bank": "STATE BANK OF INDIA"},
+        "RAMESHWAR LAL DABRIA": {"account": "11346168197", "ifsc": "SBIN0000712", "bank": "STATE BANK OF INDIA"},
+        "KRISHNA RANI": {"account": "61006285269", "ifsc": "SBIN0031798", "bank": "STATE BANK OF INDIA"}
+    }
+    beneficiaries_data = load_json_file(MASTER_BENEFICIARIES_FILE, {"beneficiaries": default_beneficiaries})
+
+    st.markdown("""
+    <div class="main-header" style="padding: 12px; margin-bottom: 15px;">
+        <h2 style="color: #f4d03f; margin:0; font-size: 22px;">संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order) मॉड्यूल</h2>
+        <p style="color: #aed6f1; margin:3px 0 0 0; font-size: 12px;">समग्र शिक्षा SNA पोर्टल भुगतान स्वीकृति, पुनर्भरण (Reimbursement) एवं SEC/ELE स्वतः गणना प्रणाली</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # मास्टर डेटा प्रबंधन एक्सपेंडर (सफेद बैकग्राउंड और टेक्स्ट क्लैश समस्या पूरी तरह हल)
+    with st.expander("⚙️ मास्टर डेटा प्रबंधन (स्कूल, वेंडर और 29 एम्प्लॉयीज बेनिफिशियरी देखें/बदले)"):
+        st.markdown("<span style='color: #f4d03f; font-weight: bold;'>आप यहाँ अपनी आवश्यकतानुसार मास्टर डेटा JSON प्रारूप में अपडेट कर सकते हैं:</span>", unsafe_allow_html=True)
+        
+        m_col1, m_col2, m_col3 = st.columns(3)
+        with m_col1:
+            st.markdown("<span style='color: #2ecc71; font-weight: bold;'>विद्यालय सूची</span>", unsafe_allow_html=True)
+            edit_schools = st.text_area("Schools:", value=", ".join(schools_data.get("schools", [])), height=120, key="edit_sch_ta")
+        with m_col2:
+            st.markdown("<span style='color: #2ecc71; font-weight: bold;'>वेंडर मास्टर डेटा</span>", unsafe_allow_html=True)
+            edit_vendors = st.text_area("Vendors:", value=json.dumps(vendors_data.get("vendors", {}), ensure_ascii=False, indent=2), height=120, key="edit_ven_ta")
+        with m_col3:
+            st.markdown("<span style='color: #2ecc71; font-weight: bold;'>बेनिफिशियरी (29 कार्मिक)</span>", unsafe_allow_html=True)
+            edit_bens = st.text_area("Beneficiaries:", value=json.dumps(beneficiaries_data.get("beneficiaries", {}), ensure_ascii=False, indent=2), height=120, key="edit_ben_ta")
+
+        if st.button("💾 समस्त मास्टर डेटा अपडेट करें", key="btn_save_master_st"):
+            try:
+                s_list = [s.strip() for s in edit_schools.split(",") if s.strip()]
+                save_json_file(MASTER_SCHOOLS_FILE, {"schools": s_list})
+                
+                v_dict = json.loads(edit_vendors)
+                save_json_file(MASTER_VENDORS_FILE, {"vendors": v_dict})
+                
+                b_dict = json.loads(edit_bens)
+                save_json_file(MASTER_BENEFICIARIES_FILE, {"beneficiaries": b_dict})
+                
+                st.success("मास्टर डेटा सफलतापूर्वक अपडेट हो गया है! कृपया पेज रिफ्रेश करें।")
+            except Exception as e:
+                st.error(f"डेटा सहेजने में विफल (JSON फॉर्मेट जांचें): {e}")
+
+    st.markdown("<h5 style='color:#f39c12; margin-bottom: 4px;'>१. प्रधान कार्यालय एवं आदेश विवरण</h5>", unsafe_allow_html=True)
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1:
+        san_office = st.text_input("प्रधान कार्यालय का नाम:", saved_san_off.get("office_name", "राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी, पंचायत समिति सांभर लेक"), key="w_san_off")
+        san_order_no = st.text_input("आदेश क्रमांक:", saved_san_off.get("order_no", "राउमावि/रोजड़ी/एसएनए सेंक्सन/2026-27/2345"), key="w_san_ord_no")
+    with sc2:
+        san_district = st.text_input("जिला:", saved_san_off.get("district", "जयपुर"), key="w_san_dist")
+        san_order_date = st.date_input("आदेश दिनांक:", datetime.now(), key="w_san_odt")
+    with sc3:
+        st.write("")
+        st.markdown("<div style='padding-top: 10px; color:#2ecc71; font-weight:bold;'>✔ मास्टर डेटा (29 एम्प्लॉयीज) सक्रिय</div>", unsafe_allow_html=True)
+
+    st.markdown("<hr style='border-color: #1b4f72; margin: 12px 0;'>", unsafe_allow_html=True)
+
+    st.markdown("<h5 style='color:#5dade2; margin-bottom: 4px;'>२. भुगतान विवरण प्रविष्टि (मास्टर ऑटो-फिल समर्थित)</h5>", unsafe_allow_html=True)
+
+    school_list = schools_data.get("schools", ["राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी"])
+    vendor_dict = vendors_data.get("vendors", {})
+    ben_dict = beneficiaries_data.get("beneficiaries", {})
+
+    r_col1, r_col2, r_col3 = st.columns(3)
+    with r_col1:
+        san_inst = st.selectbox("संस्था का नाम:", school_list, key="w_san_inst")
+        san_firm = st.selectbox("फर्म/प्राप्तकर्ता का नाम:", list(vendor_dict.keys()), key="w_san_firm")
+    with r_col2:
+        # स्पष्ट रूप से दिखने वाले रेडियो विकल्प (No / Yes)
+        san_reimb = st.radio("पुनर्भरण (Reimbursement):", ["No (नहीं)", "Yes (हाँ)"], horizontal=True, key="w_san_reimb_radio")
+        
+        san_ben = ""
+        if "Yes" in san_reimb:
+            san_ben = st.selectbox("बेनिफिशियरी (29 कार्मिक चुनें):", list(ben_dict.keys()), key="w_san_ben_sel")
+    with r_col3:
+        default_bank_str = ""
+        if "Yes" in san_reimb and san_ben in ben_dict:
+            b_info = ben_dict[san_ben]
+            default_bank_str = f"भुगतान: {san_ben} (खाता: {b_info.get('account', '')}, IFSC: {b_info.get('ifsc', '')})"
+        elif san_firm in vendor_dict:
+            v_info = vendor_dict[san_firm]
+            default_bank_str = f"खाता: {v_info.get('account', '')}, IFSC: {v_info.get('ifsc', '')}"
+
+        san_bank = st.text_input("खाता संख्या व IFSC कोड:", value=default_bank_str, key="w_san_bank")
+        san_bill = st.text_input("बिल/वाउचर सं. एवं दिनांक:", value="5225 / 25.08.2025", key="w_san_bill")
+
+    r2_c1, r2_c2, r2_c3 = st.columns(3)
+    with r2_c1:
+        san_amt = st.number_input("राशि (₹):", min_value=1, max_value=5000000, value=56436, step=1, key="w_san_amt")
+    with r2_c2:
+        san_level = st.selectbox("स्तर (SEC/ELE):", ["SEC", "ELE"], key="w_san_lvl")
+    with r2_c3:
+        comp_opts = SNA_COMPONENTS.get(san_level, SNA_COMPONENTS["SEC"])
+        san_comp = st.selectbox("कंपोनेंट चयन:", comp_opts, key="w_san_comp")
+
+    if st.button("➕ पंक्ति तालिका में जोड़ें", key="btn_add_san_row"):
+        if not san_firm.strip() or not san_bill.strip():
+            st.error("कृपया फर्म का नाम और बिल संख्या अवश्य भरें!")
+        else:
+            reimb_status_val = f"Yes (भुगतान: {san_ben})" if "Yes" in san_reimb else "No"
+            comp_rem_val = f"[{san_level}] {san_comp}"
+
+            st.session_state.san_items.append({
+                "inst": san_inst,
+                "firm": san_firm,
+                "bank_ifsc": san_bank,
+                "bill": san_bill,
+                "amount": float(san_amt),
+                "reimb_status": reimb_status_val,
+                "comp_rem": comp_rem_val
+            })
+
+            cur_off = {
+                "office_name": san_office.strip(), "district": san_district.strip(),
+                "order_no": san_order_no.strip()
+            }
+            save_json_data(SAN_DATA_FILE, {"office_data": cur_off, "items": st.session_state.san_items})
+            st.success("भुगतान विवरण तालिका में सफलताપूर्वक जोड़ दिया गया है!")
+            st.rerun()
+
+    if st.session_state.san_items:
+        st.markdown("<hr style='border-color: #1b4f72; margin: 12px 0;'>", unsafe_allow_html=True)
+        st.markdown("<h5 style='color:#2ecc71; margin-bottom: 4px;'>३. दर्ज भुगतान विवरण तालिका</h5>", unsafe_allow_html=True)
+
+        tbl_san_html = """<table class="custom-table">
+        <thead><tr>
+            <th>क्र.</th><th>संस्था का नाम</th><th>फर्म का नाम</th><th>खाता संख्या व IFSC कोड</th>
+            <th>बिल/वाउचर सं. एवं दिनांक</th><th>राशि (₹)</th><th>पुनर्भरण</th><th>कंपोनेंट व स्तर</th>
+        </tr></thead><tbody>"""
+        for idx, item in enumerate(st.session_state.san_items, 1):
+            tbl_san_html += f"""<tr>
+                <td>{idx}</td><td>{item['inst']}</td><td style='font-weight:bold;'>{item['firm']}</td>
+                <td style='text-align:left;'>{item['bank_ifsc']}</td><td>{item['bill']}</td>
+                <td style='text-align:right; font-weight:bold; color:#2ecc71;'>{item['amount']:,}</td>
+                <td>{item['reimb_status']}</td><td style='text-align:left;'>{item['comp_rem']}</td>
+            </tr>"""
+        tbl_san_html += "</tbody></table>"
+        st.markdown(tbl_san_html, unsafe_allow_html=True)
+
+        sb_col1, sb_col2 = st.columns(2)
+        with sb_col1:
+            del_san_idx = st.selectbox("हटाने हेतु पंक्ति चुनें:", range(1, len(st.session_state.san_items) + 1), format_func=lambda x: f"{x}. {st.session_state.san_items[x-1]['firm']} - ₹{st.session_state.san_items[x-1]['amount']:,}", key="del_san_sel")
+            if st.button("🗑 चयनित पंक्ति हटाएं", key="btn_del_san"):
+                del st.session_state.san_items[del_san_idx - 1]
+                cur_off = {
+                    "office_name": san_office.strip(), "district": san_district.strip(),
+                    "order_no": san_order_no.strip()
+                }
+                save_json_data(SAN_DATA_FILE, {"office_data": cur_off, "items": st.session_state.san_items})
+                st.rerun()
+        with sb_col2:
+            st.write("")
+            st.write("")
+            if st.button("🔄 सूची खाली करें (New Order)", key="btn_clr_san"):
+                st.session_state.san_items = []
+                cur_off = {
+                    "office_name": san_office.strip(), "district": san_district.strip(),
+                    "order_no": san_order_no.strip()
+                }
+                save_json_data(SAN_DATA_FILE, {"office_data": cur_off, "items": []})
+                st.rerun()
+
+        short_office_name = make_short_name(san_office)
+        sec_totals = {}
+        ele_totals = {}
+        grand_total = 0.0
+
+        for vals in st.session_state.san_items:
+            try:
+                amt = float(vals['amount'])
+            except:
+                amt = 0.0
+            grand_total += amt
+            comp_info = vals['comp_rem']
+            if "[SEC]" in comp_info:
+                c_name = comp_info.replace("[SEC]", "").strip()
+                sec_totals[c_name] = sec_totals.get(c_name, 0.0) + amt
+            elif "[ELE]" in comp_info:
+                c_name = comp_info.replace("[ELE]", "").strip()
+                ele_totals[c_name] = ele_totals.get(c_name, 0.0) + amt
+
+        summary_html = """
+        <div style="margin-top: 10px; font-size: 11px;">
+            <b>समेकित कंपोनेंट-वार योग (Component-wise Total Summary):</b>
+            <table style="width: 100%; margin-top: 5px;">
+                <tr>
+                    <th>स्तर (Level)</th>
+                    <th>कंपोनेंट का नाम (Component Name)</th>
+                    <th>कुल राशि (₹)</th>
+                </tr>
+        """
+        for c, t in sec_totals.items():
+            summary_html += f"<tr><td><b>Secondary (SEC)</b></td><td>{c}</td><td style='text-align: right;'><b>{t:,.2f}</b></td></tr>"
+        for c, t in ele_totals.items():
+            summary_html += f"<tr><td><b>Elementary (ELE)</b></td><td>{c}</td><td style='text-align: right;'><b>{t:,.2f}</b></td></tr>"
+        
+        summary_html += f"""
+                <tr style="background-color: #eaeded;">
+                    <td colspan="2" style="text-align: right;"><b>कुल योग (Grand Total):</b></td>
+                    <td style="text-align: right;"><b>{grand_total:,.2f}</b></td>
+                </tr>
+            </table>
+        </div>
+        """
+
+        max_on_page1 = 7
+        all_san_items = st.session_state.san_items
+        page1_data = all_san_items[:max_on_page1]
+        page2_data = all_san_items[max_on_page1:]
+
+        def get_san_rows_html(subset, start_sno=1):
+            h = ""
+            for idx, vals in enumerate(subset, start=start_sno):
+                firm_name = vals['firm']
+                bank_info = vals['bank_ifsc']
+                bill_info = vals['bill']
+                reimb_val = vals['reimb_status']
+                comp_info = vals['comp_rem']
+
+                if "Yes" in reimb_val:
+                    bank_info += f"<br><b style='color:#c0392b;'>चूंकि उक्त बिल संख्या {bill_info} का भुगतान बेनिफिशियरी द्वारा फर्म को किया जा चुका है, अतः इस समस्त राशि का भुगतान सीधे बेनिफिशियरी को किया जा रहा है।</b>"
+
+                h += f"""
+                        <tr>
+                            <td>{idx}</td>
+                            <td>{vals['inst']}</td>
+                            <td>{firm_name}</td>
+                            <td>{bank_info}</td>
+                            <td>{bill_info}</td>
+                            <td>{vals['amount']:,.2f}</td>
+                            <td>{reimb_val}</td>
+                            <td>{comp_info}</td>
+                        </tr>
+                """
+            return h
+
+        page1_rows = get_san_rows_html(page1_data, 1)
+        developer_text = "सॉफ्टवेयर डेवलपर: आलोक कुमार सिंह, वरिष्ठ अध्यापक, राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी | ईमेल: alokjobner@gmail.com"
+
+        if not page2_data:
+            san_html = f"""<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Sanchalan Payment Sanction Order</title>
+            <style>
+                @page {{ size: A4 landscape; margin: 6mm; }}
+                body {{ font-family: 'Arial', sans-serif; margin: 0; padding: 0; background: #fff; color: #000; }}
+                .page-box {{ border: 3px solid black; padding: 12px 15px; width: 100%; box-sizing: border-box; min-height: 92vh; position: relative; }}
+                .header {{ text-align: center; font-weight: bold; margin-bottom: 5px; }}
+                .header h3, .header h2, .header h4 {{ margin: 2px 0; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
+                th, td {{ border: 1px solid black; padding: 4px 6px; text-align: center; font-size: 11px; }}
+                th {{ background-color: #f2f2f2; }}
+                .signature-section {{ margin-top: 15px; width: 100%; text-align: right; }}
+                .signature-box {{ display: inline-block; text-align: center; font-size: 12px; line-height: 1.2; }}
+                .copy-section {{ margin-top: 12px; font-size: 11px; }}
+                .page-footer-info {{ position: absolute; bottom: 8px; left: 15px; font-size: 9px; font-style: italic; color: #333; }}
+                .page-number {{ position: absolute; bottom: 8px; right: 15px; font-size: 10px; font-weight: bold; }}
+            </style></head><body>
+            <div class='page-box'>
+                <div class='header'>
+                    <h3>कार्यालय {san_office}</h3>
+                    <h4>जिला : {san_district}</h4>
+                    <br>
+                    <h2>भुगतान स्वीकृति आदेश</h2>
+                </div>
+                
+                <p style="margin: 4px 0;"><b>क्रमांक:</b> {san_order_no} <span style="float: right;"><b>दिनांक:</b> {san_order_date.strftime('%d/%m/%Y')}</span></p>
+                
+                <p style="text-align: justify; line-height: 1.2; font-size: 11px; margin: 4px 0;">
+                राजस्थान स्कूल शिक्षा परिषद जयपुर द्वारा प्रदत्त निर्देशानुसार संचालन पोर्टल से भुगतान किये जाने की प्रक्रिया के अन्तर्गत स्थानीय विद्यालय / अधोहस्ताक्षरकर्ता के नियंत्रणाधीन संबंधित संस्थाओं हेतु जारी मद में जारी संचालन पोर्टल लिमिट से सम्बन्धित वेंडर / बेनिफिशियरी को निम्नानुसार भुगतान किये जाने की स्वीकृति प्रदान की जाती है:-
+                </p>
+                
+                <table>
+                    <tr>
+                        <th>क.स.</th><th>संस्था का नाम</th><th>फर्म का नाम / प्राप्तकर्ता</th>
+                        <th>खाता संख्या व IFSC कोड / विशिष्ट टिप्पणी</th><th>बिल/वाउचर सं. एवं दिनांक</th>
+                        <th>राशि (₹)</th><th>पुनर्भरण</th><th>कंपोनेंट व स्तर (SEC/ELE)</th>
+                    </tr>
+                    {page1_rows}
+                </table>
+
+                {summary_html}
+                
+                <div class='signature-section'>
+                    <div class='signature-box'>
+                        <b>हस्ताक्षर मय सील</b><br>प्रधानाचार्य / पीईईओ<br>{short_office_name}
+                    </div>
+                </div>
+                
+                <div class='copy-section'>
+                    <p style="margin: 2px 0;"><b>क्रमांक:</b> {san_order_no} <span style="float: right;"><b>दिनांक:</b> {san_order_date.strftime('%d/%m/%Y')}</span></p>
+                    <p style="margin: 2px 0;"><b>प्रतिलिपि :- सूचनार्थ एवं आवश्यक कार्यवाही हेतु प्रेषित :-</b></p>
+                    <ol style="margin: 2px 0; padding-left: 18px; line-height: 1.2;">
+                        <li>रोकड / लेखा शाखा स्थानीय विद्यालय।</li>
+                        <li>संबंधित संस्था प्रधान की ओर सूचनार्थ।</li>
+                        <li>कार्यालय प्रति ।</li>
+                    </ol>
+                    <div style="text-align: right; margin-top: 5px;">
+                        <div class='signature-box'>
+                            <b>हस्ताक्षर मय सील</b><br>प्रधानाचार्य / पीईईओ<br>{short_office_name}
+                        </div>
+                    </div>
+                </div>
+
+                <div class='page-footer-info'>{developer_text}</div>
+                <div class='page-number'>Page 1 of 1</div>
+            </div>
+            </body></html>"""
+        else:
+            page2_rows = get_san_rows_html(page2_data, max_on_page1 + 1)
+            san_html = f"""<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Sanchalan Payment Sanction Order</title>
+            <style>
+                @page {{ size: A4 landscape; margin: 6mm; }}
+                body {{ font-family: 'Arial', sans-serif; margin: 0; padding: 0; background: #fff; color: #000; }}
+                .page-box {{ border: 3px solid black; padding: 12px 15px; width: 100%; box-sizing: border-box; page-break-after: always; min-height: 92vh; position: relative; }}
+                .header {{ text-align: center; font-weight: bold; margin-bottom: 5px; }}
+                .header h3, .header h2, .header h4 {{ margin: 2px 0; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
+                th, td {{ border: 1px solid black; padding: 4px 6px; text-align: center; font-size: 11px; }}
+                th {{ background-color: #f2f2f2; }}
+                .signature-section {{ margin-top: 15px; width: 100%; text-align: right; }}
+                .signature-box {{ display: inline-block; text-align: center; font-size: 12px; line-height: 1.2; }}
+                .copy-section {{ margin-top: 12px; font-size: 11px; }}
+                .page-footer-info {{ position: absolute; bottom: 8px; left: 15px; font-size: 9px; font-style: italic; color: #333; }}
+                .page-number {{ position: absolute; bottom: 8px; right: 15px; font-size: 10px; font-weight: bold; }}
+            </style></head><body>
+            <!-- PAGE 1 -->
+            <div class='page-box'>
+                <div class='header'>
+                    <h3>कार्यालय {san_office}</h3>
+                    <h4>जिला : {san_district}</h4>
+                    <br>
+                    <h2>भुगतान स्वीकृति आदेश</h2>
+                </div>
+                
+                <p style="margin: 4px 0;"><b>क्रमांक:</b> {san_order_no} <span style="float: right;"><b>दिनांक:</b> {san_order_date.strftime('%d/%m/%Y')}</span></p>
+                
+                <p style="text-align: justify; line-height: 1.2; font-size: 11px; margin: 4px 0;">
+                राजस्थान स्कूल शिक्षा परिषद जयपुर द्वारा प्रदत्त निर्देशानुसार संचालन पोर्टल से भुगतान किये जाने की प्रक्रिया के अन्तर्गत स्थानीय विद्यालय / अधोहस्ताक्षरकर्ता के नियंत्रणाधीन संबंधित संस्थाओं हेतु जारी मद में जारी संचालन पोर्टल लिमिट से सम्बन्धित वेंडर / बेनिफिशियरी को निम्नानुसार भुगतान किये जाने की स्वीकृति प्रदान की जाती है:-
+                </p>
+                
+                <table>
+                    <tr>
+                        <th>क.स.</th><th>संस्था का नाम</th><th>फर्म का नाम / प्राप्तकर्ता</th>
+                        <th>खाता संख्या व IFSC कोड / विशिष्ट टिप्पणी</th><th>बिल/वाउचर सं. एवं दिनांक</th>
+                        <th>राशि (₹)</th><th>पुनर्भरण</th><th>कंपोनेंट व स्तर (SEC/ELE)</th>
+                    </tr>
+                    {page1_rows}
+                </table>
+                <div class='page-footer-info'>{developer_text}</div>
+                <div class='page-number'>Page 1 of 2</div>
+            </div>
+
+            <!-- PAGE 2 -->
+            <div class='page-box'>
+                <table>
+                    <tr>
+                        <th>क.स.</th><th>संस्था का नाम</th><th>फर्म का नाम / प्राप्तकर्ता</th>
+                        <th>खाता संख्या व IFSC कोड / विशिष्ट टिप्पणी</th><th>बिल/वाउचर सं. एवं दिनांक</th>
+                        <th>राशि (₹)</th><th>पुनर्भरण</th><th>कंपोनेंट व स्तर (SEC/ELE)</th>
+                    </tr>
+                    {page2_rows}
+                </table>
+
+                {summary_html}
+                
+                <div class='signature-section'>
+                    <div class='signature-box'>
+                        <b>हस्ताक्षर मय सील</b><br>प्रधानाचार्य / पीईईओ<br>{short_office_name}
+                    </div>
+                </div>
+                
+                <div class='copy-section'>
+                    <p style="margin: 2px 0;"><b>क्रमांक:</b> {san_order_no} <span style="float: right;"><b>दिनांक:</b> {san_order_date.strftime('%d/%m/%Y')}</span></p>
+                    <p style="margin: 2px 0;"><b>प्रतिलिपि :- सूचनार्थ एवं आवश्यक कार्यवाही हेतु प्रेषित :-</b></p>
+                    <ol style="margin: 2px 0; padding-left: 18px; line-height: 1.2;">
+                        <li>रोकड / लेखा शाखा स्थानीय विद्यालय।</li>
+                        <li>संबंधित संस्था प्रधान की ओर सूचनार्थ।</li>
+                        <li>कार्यालय प्रति ।</li>
+                    </ol>
+                    <div style="text-align: right; margin-top: 5px;">
+                        <div class='signature-box'>
+                            <b>हस्ताक्षर मय सील</b><br>प्रधानाचार्य / पीईईओ<br>{short_office_name}
+                        </div>
+                    </div>
+                </div>
+
+                <div class='page-footer-info'>{developer_text}</div>
+                <div class='page-number'>Page 2 of 2</div>
+            </div>
+            </body></html>"""
+
+        st.download_button(
+            label="✨ संचालन पोर्टल आदेश जनरेट करें (PDF / Print Preview) 🖨",
+            data=san_html,
+            file_name=f"Sanchalan_Sanction_Order_{datetime.now().strftime('%Y%m%d')}.html",
             mime="text/html"
         )
