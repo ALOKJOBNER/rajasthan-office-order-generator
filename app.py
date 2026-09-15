@@ -5,7 +5,7 @@ import os
 import json
 from datetime import datetime
 
-# 1. पेज कॉन्फ़िगरेशन (केवल एक बार)
+# 1. पेज कॉन्फ़िगरेशन
 st.set_page_config(
     page_title="राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर सॉफ्टवेयर",
     page_icon="📜",
@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =============================================================================
-# यूजर ऑथेंटिकेशन (Login, Sign-up & Forgot Password) सिस्टम
+# यूजर ऑथेंटिकेशन (Login, Sign-up, Forgot Username & Password) सिस्टम
 # =============================================================================
 USERS_DB_FILE = "users_db.json"
 
@@ -42,25 +42,25 @@ if not st.session_state.logged_in:
     <style>
         .login-card {
             background-color: #132743;
-            padding: 30px;
+            padding: 25px;
             border-radius: 12px;
             border: 2px solid #f4d03f;
             box-shadow: 0 8px 24px rgba(0,0,0,0.6);
             max-width: 500px;
-            margin: 20px auto;
+            margin: 10px auto;
         }
         .login-title {
             color: #f4d03f;
             text-align: center;
-            font-size: 24px;
+            font-size: 22px;
             font-weight: bold;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
         .login-sub {
             color: #aed6f1;
             text-align: center;
-            font-size: 13.5px;
-            margin-bottom: 20px;
+            font-size: 13px;
+            margin-bottom: 15px;
             font-style: italic;
         }
     </style>
@@ -71,15 +71,16 @@ if not st.session_state.logged_in:
     </div>
     """, unsafe_allow_html=True)
 
-    _, col_center, _ = st.columns([1, 2.5, 1])
+    _, col_center, _ = st.columns([1, 2.6, 1])
     
     with col_center:
-        st.markdown('<div style="background-color: #132743; padding: 25px; border-radius: 10px; border: 1px solid #2980b9;">', unsafe_allow_html=True)
+        st.markdown('<div style="background-color: #132743; padding: 20px; border-radius: 10px; border: 1px solid #2980b9;">', unsafe_allow_html=True)
         
-        tab_login, tab_signup, tab_forgot = st.tabs(["🔑 लॉगिन", "📝 नया अकाउंट", "🔄 पासवर्ड रीसेट"])
+        # चार टैब: लॉगिन, नया अकाउंट, पासवर्ड रीसेट, यूजरनेम रिकवरी
+        tab_login, tab_signup, tab_pass, tab_user = st.tabs(["🔑 लॉगिन", "📝 रजिस्टर", "🔄 पासवर्ड रीसेट", "❓ यूजरनेम भूल गए?"])
         
         with tab_login:
-            st.markdown("<p style='color: #2ecc71; font-weight: bold; margin-top: 10px;'>अपने क्रेडेंशियल्स दर्ज करें:</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #2ecc71; font-weight: bold; margin-top: 8px;'>अपने क्रेडेंशियल्स दर्ज करें:</p>", unsafe_allow_html=True)
             login_user = st.text_input("यूजरनेम (Username)", key="login_u")
             login_pass = st.text_input("पासवर्ड (Password)", type="password", key="login_p")
             
@@ -95,10 +96,10 @@ if not st.session_state.logged_in:
                     st.error("गलत यूजरनेम या पासवर्ड!")
                     
         with tab_signup:
-            st.markdown("<p style='color: #f39c12; font-weight: bold; margin-top: 10px;'>नया अकाउंट बनाएं (सुरक्षा प्रश्न सहित):</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #f39c12; font-weight: bold; margin-top: 8px;'>नया अकाउंट बनाएं:</p>", unsafe_allow_html=True)
             new_user = st.text_input("नया यूजरनेम बनाएं", key="signup_u")
             new_pass = st.text_input("नया पासवर्ड बनाएं", type="password", key="signup_p")
-            sec_ans = st.text_input("सुरक्षा प्रश्न: आपका गृह जिला (Home District) कौन सा है?", key="signup_sec", help="पासवर्ड भूलने पर रिकवरी के काम आएगा")
+            sec_ans = st.text_input("सुरक्षा प्रश्न: आपका गृह जिला कौन सा है?", key="signup_sec", help="यूजरनेम या पासवर्ड रिकवरी के लिए")
             
             if st.button("✨ रजिस्टर करें"):
                 db = load_users()
@@ -106,7 +107,7 @@ if not st.session_state.logged_in:
                 if not new_user.strip() or not new_pass.strip() or not sec_ans.strip():
                     st.error("सभी फील्ड भरना अनिवार्य है!")
                 elif new_user in users:
-                    st.error("यह यूजरनेम पहले से मौजूद है, दूसरा चुनें!")
+                    st.error("यह यूजरनेम पहले से मौजूद है!")
                 else:
                     users[new_user] = {
                         "password": new_pass,
@@ -114,33 +115,76 @@ if not st.session_state.logged_in:
                     }
                     db["users"] = users
                     save_users(db)
-                    st.success("अकाउंट बन गया है! अब 'लॉगिन' टैब में जाकर प्रवेश करें।")
+                    st.success("अकाउंट बन गया है! अब 'लॉगिन' टैब में जाएं।")
 
-        with tab_forgot:
-            st.markdown("<p style='color: #e74c3c; font-weight: bold; margin-top: 10px;'>पासवर्ड रीसेट करें:</p>", unsafe_allow_html=True)
-            f_user = st.text_input("अपना यूजरनेम दर्ज करें", key="f_user")
-            f_ans = st.text_input("अपना गृह जिला (Home District) दर्ज करें", key="f_ans", help="जो रजिस्टर करते समय भरा था")
-            new_p1 = st.text_input("नया पासवर्ड दर्ज करें", type="password", key="f_p1")
-            new_p2 = st.text_input("नया पासवर्ड दोबारा दर्ज करें", type="password", key="f_p2")
+        with tab_pass:
+            st.markdown("<p style='color: #e74c3c; font-weight: bold; margin-top: 8px;'>पासवर्ड रीसेट करें:</p>", unsafe_allow_html=True)
+            f_user = st.text_input("यूजरनेम दर्ज करें", key="f_user")
+            f_ans = st.text_input("गृह जिला (Security Answer)", key="f_ans")
+            new_p1 = st.text_input("नया पासवर्ड", type="password", key="f_p1")
+            new_p2 = st.text_input("नया पासवर्ड पुनश्च", type="password", key="f_p2")
             
             if st.button("🔄 पासवर्ड अपडेट करें"):
                 db = load_users()
                 users = db.get("users", {})
                 if f_user not in users:
-                    st.error("यह यूजरनेम मौजूद नहीं है!")
+                    st.error("यूजरनेम नहीं मिला!")
                 elif users[f_user].get("security_answer", "") != f_ans.strip().lower():
                     st.error("सुरक्षा उत्तर गलत है!")
                 elif not new_p1.strip() or new_p1 != new_p2:
-                    st.error("नया पासवर्ड खाली नहीं हो सकता या दोनों मैच नहीं हो रहे!")
+                    st.error("पासवर्ड मैच नहीं हो रहे!")
                 else:
                     users[f_user]["password"] = new_p1
                     db["users"] = users
                     save_users(db)
-                    st.success("पासवर्ड सफलतापूर्वक बदल गया है! अब 'लॉगिन' टैब से लॉगिन करें।")
+                    st.success("पासवर्ड बदल गया है! अब लॉगिन करें।")
+
+        with tab_user:
+            st.markdown("<p style='color: #3498db; font-weight: bold; margin-top: 8px;'>अपना भूला हुआ यूजरनेम पता करें:</p>", unsafe_allow_html=True)
+            f_sec_ans = st.text_input("रजिस्टर करते वक्त भरा गया 'गृह जिला'", key="find_sec_ans")
+            
+            if st.button("🔍 यूजरनेम खोजें"):
+                db = load_users()
+                users = db.get("users", {})
+                found_uname = None
+                for uname, udata in users.items():
+                    if udata.get("security_answer", "") == f_sec_ans.strip().lower():
+                        found_uname = uname
+                        break
+                if found_uname:
+                    st.success(f"आपका यूजरनेम है: **{found_uname}**")
+                else:
+                    st.error("इस सुरक्षा उत्तर से कोई यूजरनेम नहीं मिला!")
         
         st.markdown('</div>', unsafe_allow_html=True)
                 
     st.stop()
+
+# =============================================================================
+# 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक (लॉगिन के बाद सक्रिय - यूजर प्रोफाइल बार)
+# =============================================================================
+current_user = st.session_state.get("username", "default_user")
+
+# स्क्रीन के ऊपर यूजर प्रोफाइल और लॉगआउट बार दिखाना
+st.markdown(f"""
+<div style="background-color: #1b4f72; padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #f4d03f;">
+    <span style="color: #f4d03f; font-weight: bold; font-size: 15px;">👤 स्वागत है, {current_user.upper()} जी! (सक्रिय यूजर प्रोफाइल)</span>
+</div>
+""", unsafe_allow_html=True)
+
+# साइडबार में लॉगआउट बटन देना ताकि यूजर आसानी से स्विच कर सके
+if st.sidebar.button("🚪 लॉगआउट (Logout)", help="अपने अकाउंट से बाहर निकलें"):
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+    st.rerun()
+
+PL_DATA_FILE = os.path.join("output", f"saved_pl_data_{current_user}.json")
+INC_DATA_FILE = os.path.join("output", f"saved_increment_data_{current_user}.json")
+SAN_DATA_FILE = os.path.join("output", f"saved_sanchalan_data_{current_user}.json")
+
+MASTER_VENDORS_FILE = "master_vendors.json"
+MASTER_SCHOOLS_FILE = "master_schools.json"
+MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
 
 # =============================================================================
 # 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक (यूजर-वाइज आइसोलेशन)
