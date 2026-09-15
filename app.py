@@ -11,7 +11,93 @@ st.set_page_config(
     page_icon="📜",
     layout="wide"
 )
+from auth_utils import load_users, register_user, verify_user, recover_username, reset_password
 
+# --- LOGIN & AUTHENTICATION WRAPPER ---
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "logged_in_user" not in st.session_state:
+    st.session_state.logged_in_user = ""
+
+if not st.session_state.authenticated:
+    st.markdown("""
+    <div style="max-width: 450px; margin: 40px auto; background: #132743; padding: 25px; border-radius: 12px; border: 2px solid #f4d03f; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+        <h2 style="color: #f4d03f; text-align: center; margin-bottom: 10px;">सॉफ्टवेयर लॉगिन पोर्टल</h2>
+        <p style="color: #aed6f1; text-align: center; font-size: 13px; margin-bottom: 20px;">Kripya apne credential se login karein ya naya account banayein.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    auth_tab1, auth_tab2, auth_tab3, auth_tab4 = st.tabs(["🔐 Login", "📝 Register", "🔑 Forgot Password", "👤 Forgot Username"])
+    
+    with auth_tab1:
+        st.subheader("Login to Software")
+        with st.form("login_form"):
+            l_user = st.text_input("User ID / Username")
+            l_pass = st.text_input("Password", type="password")
+            l_sub = st.form_submit_button("Login Karein")
+            if l_sub:
+                success, msg = verify_user(l_user, l_pass)
+                if success:
+                    st.session_state.authenticated = True
+                    st.session_state.logged_in_user = l_user
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+                    
+    with auth_tab2:
+        st.subheader("Naya Registration Karein")
+        with st.form("reg_form"):
+            r_user = st.text_input("Naya User ID / Username चुने")
+            r_pass = st.text_input("Password चुने", type="password")
+            r_name = st.text_input("पूरा नाम (Full Name)")
+            r_email = st.text_input("Email ID (Password recovery ke liye)")
+            r_sub = st.form_submit_button("Register Karein")
+            if r_sub:
+                if not r_user or not r_pass or not r_name or not r_email:
+                    st.error("Kripya sabhi fields bharein!")
+                else:
+                    success, msg = register_user(r_user, r_pass, r_name, r_email)
+                    if success:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
+                        
+    with auth_tab3:
+        st.subheader("Forgot Password")
+        with st.form("fp_form"):
+            fp_user = st.text_input("Apna User ID dalein")
+            fp_email = st.text_input("Registered Email ID dalein")
+            fp_new = st.text_input("Naya Password dalein", type="password")
+            fp_sub = st.form_submit_button("Password Reset Karein")
+            if fp_sub:
+                success, msg = reset_password(fp_user, fp_email, fp_new)
+                if success:
+                    st.success(msg)
+                else:
+                    st.error(msg)
+                    
+    with auth_tab4:
+        st.subheader("Forgot Username")
+        with st.form("fu_form"):
+            fu_name = st.text_input(" Apna Pura Naam (Full Name) dalein")
+            fu_email = st.text_input("Registered Email ID dalein")
+            fu_sub = st.form_submit_button("User ID Pata Karein")
+            if fu_sub:
+                success, msg = recover_username(fu_name, fu_email)
+                if success:
+                    st.success(msg)
+                else:
+                    st.error(msg)
+    st.stop()
+else:
+    # Sidebar par logged-in user ka naam aur Logout button dikhane ke liye
+    with st.sidebar:
+        st.markdown(f"👤 **Logined User:** `{st.session_state.logged_in_user}`")
+        if st.button("🚪 Logout"):
+            st.session_state.authenticated = False
+            st.session_state.logged_in_user = ""
+            st.rerun()
 # 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक
 PL_DATA_FILE = os.path.join("output", "saved_pl_data.json")
 INC_DATA_FILE = os.path.join("output", "saved_increment_data.json")
