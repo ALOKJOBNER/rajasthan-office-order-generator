@@ -77,7 +77,7 @@ def go_to_page(p_name):
     st.session_state.page = p_name
     st.rerun()
 
-# उन्नत CSS: सभी टैब, लेबल्स और मॉड्यूल बटन्स के रंग फिक्स
+# उन्नत और अचूक CSS: रंग, टेक्स्ट विजिबिलिटी और लेआउट फिक्स
 st.markdown("""
 <style>
     .stApp { background-color: #0c1d36; color: #ffffff; }
@@ -149,7 +149,7 @@ st.markdown("""
         border-radius: 12px;
         border: 2px solid #f4d03f;
         box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-        max-width: 500px;
+        max-width: 520px;
         margin: 10px auto;
     }
     .login-title {
@@ -167,29 +167,11 @@ st.markdown("""
         font-style: italic;
     }
 
-    /* महत्वपूर्ण: सभी टैब के टेक्स्ट को हमेशा चमकीला और दृश्यमान रखना */
-    .stTabs [data-baseweb="tab"] {
+    /* रेडियो नेविगेशन (टैब विकल्प) के टेक्स्ट को हमेशा चमकीला पीला रखना */
+    .stRadio label p {
         color: #f4d03f !important;
-        font-weight: 800 !important;
-        font-size: 14.5px !important;
-        background-color: #102a45 !important;
-        border: 1px solid #2980b9 !important;
-        padding: 8px 14px !important;
-        margin-right: 4px !important;
-        border-radius: 6px 6px 0 0 !important;
-        opacity: 1 !important;
-    }
-    .stTabs [data-baseweb="tab"] div {
-        color: #f4d03f !important;
-        font-weight: 800 !important;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #1f618d !important;
-        color: #ffffff !important;
-        border-bottom: 3px solid #f4d03f !important;
-    }
-    .stTabs [aria-selected="true"] div {
-        color: #ffffff !important;
+        font-size: 15px !important;
+        font-weight: bold !important;
     }
 
     /* लेबल्स */
@@ -208,21 +190,21 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* मॉड्यूल 1 बटन (ऑरेंज) */
+    /* मॉड्यूल 1 बटन (नारंगी - PL Surrender) */
     div.stButton > button[key*="btn_mod_pl"] {
         background-color: #d35400 !important;
         border: 2px solid #e67e22 !important;
         box-shadow: 0 4px 0 #a04000 !important;
     }
     
-    /* मॉड्यूल 2 बटन (ग्रीन) */
+    /* मॉड्यूल 2 बटन (हरा - Increment) */
     div.stButton > button[key*="btn_mod_inc"] {
         background-color: #27ae60 !important;
         border: 2px solid #2ecc71 !important;
         box-shadow: 0 4px 0 #1e8449 !important;
     }
 
-    /* मॉड्यूल 3 बटन (वायलेट/बैंगनी) */
+    /* मॉड्यूल 3 बटन (बैंगनी/वॉयलेट - Sanchalan Portal) */
     div.stButton > button[key*="btn_mod_san"] {
         background-color: #8e44ad !important;
         border: 2px solid #9b59b6 !important;
@@ -275,14 +257,22 @@ if not st.session_state.logged_in:
     </div>
     """, unsafe_allow_html=True)
 
-    _, col_center, _ = st.columns([1, 2.6, 1])
+    _, col_center, _ = st.columns([1, 2.8, 1])
     
     with col_center:
         st.markdown('<div style="background-color: #132743; padding: 20px; border-radius: 10px; border: 1px solid #2980b9;">', unsafe_allow_html=True)
         
-        tab_login, tab_signup, tab_pass, tab_user = st.tabs(["🔑 लॉगिन", "📝 रजिस्टर", "🔄 पासवर्ड रीसेट", "❓ यूजरनेम भूल गए?"])
+        # st.tabs की खामी को दूर करने के लिए st.radio का उपयोग (सभी विकल्प हमेशा स्पष्ट दिखेंगे)
+        auth_mode = st.radio(
+            "मोड चुनें:",
+            ["🔑 लॉगिन", "📝 रजिस्टर", "🔄 पासवर्ड रीसेट", "❓ यूजरनेम भूल गए?"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
         
-        with tab_login:
+        st.markdown("<hr style='border-color: #2980b9; margin: 10px 0;'>", unsafe_allow_html=True)
+
+        if auth_mode == "🔑 लॉगिन":
             st.markdown("<p style='color: #2ecc71; font-weight: bold; margin-top: 8px;'>अपने क्रेडेंशियल्स दर्ज करें:</p>", unsafe_allow_html=True)
             login_user = st.text_input("यूजरनेम (Username)", key="login_u")
             login_pass = st.text_input("पासवर्ड (Password)", type="password", key="login_p")
@@ -299,7 +289,7 @@ if not st.session_state.logged_in:
                 else:
                     st.error("गलत यूजरनेम या पासवर्ड!")
                     
-        with tab_signup:
+        elif auth_mode == "📝 रजिस्टर":
             st.markdown("<p style='color: #f39c12; font-weight: bold; margin-top: 8px;'>नया अकाउंट बनाएं:</p>", unsafe_allow_html=True)
             new_user = st.text_input("नया यूजरनेम बनाएं", key="signup_u")
             new_pass = st.text_input("नया पासवर्ड बनाएं", type="password", key="signup_p")
@@ -321,11 +311,11 @@ if not st.session_state.logged_in:
                     save_users(db)
                     st.markdown("""
                     <div style="background-color: #1e8449; color: #ffffff; padding: 15px; border-radius: 8px; border: 2px solid #2ecc71; text-align: center; font-weight: bold; font-size: 16px; margin-top: 15px;">
-                        🎉 बधाई हो! अकाउंट सफलतापूर्वक बन गया है!<br>अब ऊपर '🔑 लॉगिन' टैब पर क्लिक करके प्रवेश करें।
+                        🎉 बधाई हो! अकाउंट सफलतापूर्वक बन गया है!<br>अब ऊपर '🔑 लॉगिन' मोड चुनकर प्रवेश करें।
                     </div>
                     """, unsafe_allow_html=True)
 
-        with tab_pass:
+        elif auth_mode == "🔄 पासवर्ड रीसेट":
             st.markdown("<p style='color: #e74c3c; font-weight: bold; margin-top: 8px;'>पासवर्ड रीसेट करें:</p>", unsafe_allow_html=True)
             f_user = st.text_input("यूजरनेम दर्ज करें", key="f_user")
             f_ans = st.text_input("गृह जिला (Security Answer)", key="f_ans")
@@ -351,7 +341,7 @@ if not st.session_state.logged_in:
                     </div>
                     """, unsafe_allow_html=True)
 
-        with tab_user:
+        elif auth_mode == "❓ यूजरनेम भूल गए?":
             st.markdown("<p style='color: #3498db; font-weight: bold; margin-top: 8px;'>अपना भूला हुआ यूजरनेम पता करें:</p>", unsafe_allow_html=True)
             f_sec_ans = st.text_input("रजिस्टर करते वक्त भरा गया 'गृह जिला'", key="find_sec_ans")
             
@@ -583,12 +573,15 @@ if active_page == "dashboard":
 
         st.markdown("<h4 style='color:#5dade2; margin-bottom: 14px;'>कार्यालय आदेश मॉड्यूल चयन करें:</h4>", unsafe_allow_html=True)
 
+        # मॉड्यूल 1 बटन (नारंगी - Orange)
         if st.button("1. उपार्जित अवकाश समर्पण (PL Surrender) आदेश जनरेटर ▶", key="btn_mod_pl", use_container_width=True):
             go_to_page("pl_surrender")
         
+        # मॉड्यूल 2 बटन (हरा - Green)
         if st.button("2. वार्षिक सामयिक वेतन वृद्धि (Annual Increment) आदेश जनरेटर ▶", key="btn_mod_inc", use_container_width=True):
             go_to_page("increment_order")
             
+        # मॉड्यूल 3 बटन (बैंगनी/वॉयलेट - Violet)
         if st.button("3. संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order) जनरेटर ▶", key="btn_mod_san", use_container_width=True):
             go_to_page("sanchalan_portal")
             
@@ -602,6 +595,7 @@ if active_page == "dashboard":
 # पृष्ठ 2: उपार्जित अवकाश समर्पण (PL Surrender) विंडो
 # =============================================================================
 elif active_page == "pl_surrender":
+    # मुख्य डैशबोर्ड पर वापस जाने का बटन (लाल - Red)
     if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="btn_back_dash"):
         go_to_page("dashboard")
 
@@ -1017,15 +1011,6 @@ elif active_page == "increment_order":
 # पृष्ठ 4: संचालन पोर्टल भुगतान स्वीकृति आदेश (Sanchalan Portal Sanction) विंडो
 # =============================================================================
 elif active_page == "sanchalan_portal":
-    st.markdown("""
-    <style>
-        div[data-testid="stButton"] > button[key*="btn_back_dash"] {
-            background-color: #c0392b !important;
-            border-color: #e74c3c !important;
-            box-shadow: 0 4px 0 #922b21 !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
     if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="btn_back_dash"):
         go_to_page("dashboard")
 
@@ -1446,7 +1431,7 @@ elif active_page == "sanchalan_portal":
                     </ol>
                     <div style="text-align: right; margin-top: 5px;">
                         <div class='signature-box'>
-                            <b>हस्ताक्षर मy सील</b><br>प्रधानाचार्य / पीईईओ<br>{short_office_name}
+                            <b>हस्ताक्षर मय सील</b><br>प्रधानाचार्य / पीईईओ<br>{short_office_name}
                         </div>
                     </div>
                 </div>
