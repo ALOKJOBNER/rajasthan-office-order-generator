@@ -77,7 +77,7 @@ def go_to_page(p_name):
     st.session_state.page = p_name
     st.rerun()
 
-# उच्च-स्तरीय CSS: टैब के सभी अक्षर हमेशा दिखने के लिए, फालतू बार हटाने और डैशबोर्ड बटन्स के रंग तय करने के लिए
+# उन्नत CSS: सभी टैब, लेबल्स और मॉड्यूल बटन्स के रंग फिक्स
 st.markdown("""
 <style>
     .stApp { background-color: #0c1d36; color: #ffffff; }
@@ -142,6 +142,7 @@ st.markdown("""
         line-height: 1.6;
     }
 
+    /* लॉगिन कार्ड */
     .login-card {
         background-color: #132743;
         padding: 25px;
@@ -166,28 +167,28 @@ st.markdown("""
         font-style: italic;
     }
 
-    /* महत्वपूर्ण: सभी टैब के अक्षर हमेशा चमकदार पीले और स्पष्ट दिखेंगे */
+    /* महत्वपूर्ण: सभी टैब के टेक्स्ट को हमेशा चमकीला और दृश्यमान रखना */
     .stTabs [data-baseweb="tab"] {
         color: #f4d03f !important;
-        font-weight: bold !important;
-        font-size: 15px !important;
-        background-color: #132743 !important;
+        font-weight: 800 !important;
+        font-size: 14.5px !important;
+        background-color: #102a45 !important;
         border: 1px solid #2980b9 !important;
-        padding: 10px 16px !important;
+        padding: 8px 14px !important;
         margin-right: 4px !important;
         border-radius: 6px 6px 0 0 !important;
         opacity: 1 !important;
     }
-    .stTabs [data-baseweb="tab"] p, .stTabs [data-baseweb="tab"] span {
+    .stTabs [data-baseweb="tab"] div {
         color: #f4d03f !important;
-        opacity: 1 !important;
+        font-weight: 800 !important;
     }
     .stTabs [aria-selected="true"] {
         background-color: #1f618d !important;
         color: #ffffff !important;
         border-bottom: 3px solid #f4d03f !important;
     }
-    .stTabs [aria-selected="true"] p {
+    .stTabs [aria-selected="true"] div {
         color: #ffffff !important;
     }
 
@@ -207,31 +208,31 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* मॉड्यूल 1: PL Surrender बटन (नारंगी रंग) */
-    div[data-testid="stButton"] > button[key*="btn_mod_pl"] {
+    /* मॉड्यूल 1 बटन (ऑरेंज) */
+    div.stButton > button[key*="btn_mod_pl"] {
         background-color: #d35400 !important;
-        border-color: #e67e22 !important;
-        box-shadow: 0 5px 0 #a04000 !important;
+        border: 2px solid #e67e22 !important;
+        box-shadow: 0 4px 0 #a04000 !important;
     }
-
-    /* मॉड्यूल 2: Increment बटन (हरा रंग) */
-    div[data-testid="stButton"] > button[key*="btn_mod_inc"] {
+    
+    /* मॉड्यूल 2 बटन (ग्रीन) */
+    div.stButton > button[key*="btn_mod_inc"] {
         background-color: #27ae60 !important;
-        border-color: #2ecc71 !important;
-        box-shadow: 0 5px 0 #1e8449 !important;
+        border: 2px solid #2ecc71 !important;
+        box-shadow: 0 4px 0 #1e8449 !important;
     }
 
-    /* मॉड्यूल 3: Sanchalan Portal बटन (बैंगनी रंग) */
-    div[data-testid="stButton"] > button[key*="btn_mod_san"] {
+    /* मॉड्यूल 3 बटन (वायलेट/बैंगनी) */
+    div.stButton > button[key*="btn_mod_san"] {
         background-color: #8e44ad !important;
-        border-color: #9b59b6 !important;
-        box-shadow: 0 5px 0 #512e5f !important;
+        border: 2px solid #9b59b6 !important;
+        box-shadow: 0 4px 0 #512e5f !important;
     }
 
-    /* मुख्य डैशबोर्ड पर वापस जाने का बटन (लाल रंग) */
-    div[data-testid="stButton"] > button[key*="btn_back_dash"] {
+    /* मुख्य डैशबोर्ड पर वापस जाने का बटन (लाल) */
+    div.stButton > button[key*="btn_back_dash"] {
         background-color: #c0392b !important;
-        border-color: #e74c3c !important;
+        border: 2px solid #e74c3c !important;
         box-shadow: 0 4px 0 #922b21 !important;
     }
 
@@ -243,6 +244,8 @@ st.markdown("""
         border: 2px solid #3498db !important;
         border-radius: 6px !important;
         box-shadow: 0 4px 0 #1b4f72 !important;
+        width: 100% !important;
+        padding: 12px !important;
     }
     button *, div.stButton > button * {
         color: #ffffff !important;
@@ -318,7 +321,7 @@ if not st.session_state.logged_in:
                     save_users(db)
                     st.markdown("""
                     <div style="background-color: #1e8449; color: #ffffff; padding: 15px; border-radius: 8px; border: 2px solid #2ecc71; text-align: center; font-weight: bold; font-size: 16px; margin-top: 15px;">
-                        🎉 बधाई हो! अकाउंट सफलतापूर्वक बन गया है!<br>अब ऊपर '🔑 लॉगिन' टैब में जाकर प्रवेश करें।
+                        🎉 बधाई हो! अकाउंट सफलतापूर्वक बन गया है!<br>अब ऊपर '🔑 लॉगिन' टैब पर क्लिक करके प्रवेश करें।
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -388,15 +391,6 @@ with col_welcome:
     """, unsafe_allow_html=True)
 
 with col_btn:
-    st.markdown("""
-    <style>
-        div[data-testid="stButton"] > button[key*="btn_logout"] {
-            background-color: #c0392b !important;
-            border-color: #e74c3c !important;
-            box-shadow: 0 4px 0 #922b21 !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
     if st.button("🚪 लॉगआउट", key="btn_logout", use_container_width=True, help="अपने अकाउंट से सुरक्षित बाहर निकलें"):
         st.session_state.logged_in = False
         st.session_state.username = ""
@@ -589,15 +583,12 @@ if active_page == "dashboard":
 
         st.markdown("<h4 style='color:#5dade2; margin-bottom: 14px;'>कार्यालय आदेश मॉड्यूल चयन करें:</h4>", unsafe_allow_html=True)
 
-        # मॉड्यूल 1: नारंगी रंग (Orange)
         if st.button("1. उपार्जित अवकाश समर्पण (PL Surrender) आदेश जनरेटर ▶", key="btn_mod_pl", use_container_width=True):
             go_to_page("pl_surrender")
         
-        # मॉड्यूल 2: हरा रंग (Green)
         if st.button("2. वार्षिक सामयिक वेतन वृद्धि (Annual Increment) आदेश जनरेटर ▶", key="btn_mod_inc", use_container_width=True):
             go_to_page("increment_order")
             
-        # मॉड्यूल 3: बैंगनी रंग (Violet)
         if st.button("3. संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order) जनरेटर ▶", key="btn_mod_san", use_container_width=True):
             go_to_page("sanchalan_portal")
             
@@ -1455,7 +1446,7 @@ elif active_page == "sanchalan_portal":
                     </ol>
                     <div style="text-align: right; margin-top: 5px;">
                         <div class='signature-box'>
-                            <b>हस्ताक्षर मay सील</b><br>प्रधानाचार्य / पीईईओ<br>{short_office_name}
+                            <b>हस्ताक्षर मy सील</b><br>प्रधानाचार्य / पीईईओ<br>{short_office_name}
                         </div>
                     </div>
                 </div>
