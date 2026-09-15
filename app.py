@@ -70,10 +70,14 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = ""
-if "current_page" not in st.session_state:
-    st.session_state.current_page = "dashboard"
+if "page" not in st.session_state:
+    st.session_state.page = "dashboard"
 
-# अचूक CSS: डार्क थीम, टैब विजिबिलिटी और बटन विजिबिलिटी फिक्स
+def go_to_page(p_name):
+    st.session_state.page = p_name
+    st.rerun()
+
+# उच्च-स्तरीय CSS: टैब, अक्षर विजिबिलिटी, पॉप-अप और कलर कॉम्बिनेशन फिक्स
 st.markdown("""
 <style>
     .stApp { background-color: #0c1d36; color: #ffffff; }
@@ -138,7 +142,7 @@ st.markdown("""
         line-height: 1.6;
     }
 
-    /* लॉगिन कार्ड और टैब फिक्स */
+    /* लॉगिन कार्ड और टैब फिक्स - सभी टैब के अक्षर हमेशा स्पष्ट दिखेंगे */
     .login-card {
         background-color: #132743;
         padding: 25px;
@@ -163,18 +167,24 @@ st.markdown("""
         font-style: italic;
     }
 
-    /* सभी टैब के टेक्स्ट को स्पष्ट पीला/سफेद करना */
+    /* स्ट्रीमलिट टैब के टेक्स्ट कलर को फिक्स करना */
     .stTabs [data-baseweb="tab"] {
         color: #f4d03f !important;
         font-weight: bold !important;
         font-size: 15px !important;
+        background-color: #102a45 !important;
+        border: 1px solid #2980b9 !important;
+        padding: 10px 16px !important;
+        margin-right: 4px !important;
+        border-radius: 6px 6px 0 0 !important;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #1f418d !important;
-        border-radius: 5px 5px 0 0 !important;
+        background-color: #1f618d !important;
+        color: #ffffff !important;
+        border-bottom: 3px solid #f4d03f !important;
     }
 
-    /* लेबल्स */
+    /* लेबल्स और टेक्स्ट */
     label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span {
         color: #f4d03f !important;
         font-size: 14.5px !important;
@@ -190,8 +200,8 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* यूनिवर्सल बटन फिक्स ताकि टेक्स्ट हमेशा दिखे */
-    button, div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
+    /* यूनिवर्सल बटन डिफॉल्ट (नीला) */
+    button, div.stButton > button {
         background-color: #2980b9 !important;
         color: #ffffff !important;
         font-weight: bold !important;
@@ -199,30 +209,9 @@ st.markdown("""
         border-radius: 6px !important;
         box-shadow: 0 4px 0 #1b4f72 !important;
     }
-    button *, div.stButton > button *, div[data-testid="stFormSubmitButton"] > button * {
+    button *, div.stButton > button * {
         color: #ffffff !important;
         font-weight: bold !important;
-    }
-
-    div[data-testid="stFormSubmitButton"] > button {
-        background-color: #27ae60 !important;
-        border-color: #2ecc71 !important;
-        box-shadow: 0 4px 0 #1e8449 !important;
-    }
-
-    div[data-testid="stDownloadButton"] > button {
-        background-color: #d35400 !important;
-        border: 2px solid #e67e22 !important;
-        border-radius: 8px !important;
-        box-shadow: 0 6px 0 #a04000 !important;
-        width: 100% !important;
-        padding: 14px !important;
-        margin-top: 15px !important;
-    }
-    div[data-testid="stDownloadButton"] > button * {
-        color: #ffffff !important;
-        font-size: 17px !important;
-        font-weight: 800 !important;
     }
 
     .custom-table {
@@ -260,13 +249,14 @@ if not st.session_state.logged_in:
             login_user = st.text_input("यूजरनेम (Username)", key="login_u")
             login_pass = st.text_input("पासवर्ड (Password)", type="password", key="login_p")
             
-            if st.button("🚀 सुरक्षित लॉगिन करें"):
+            # लॉगिन बटन (नीला / ब्लू थीम)
+            if st.button("🚀 सुरक्षित लॉगिन करें", key="btn_login_act"):
                 db = load_users()
                 users = db.get("users", {})
                 if login_user in users and users[login_user]["password"] == login_pass:
                     st.session_state.logged_in = True
                     st.session_state.username = login_user
-                    st.session_state.current_page = "dashboard"
+                    st.session_state.page = "dashboard"
                     st.success("लॉगिन सफल रहा!")
                     st.rerun()
                 else:
@@ -278,13 +268,24 @@ if not st.session_state.logged_in:
             new_pass = st.text_input("नया पासवर्ड बनाएं", type="password", key="signup_p")
             sec_ans = st.text_input("सुरक्षा प्रश्न: आपका गृह जिला कौन सा है?", key="signup_sec", help="यूजरनेम या पासवर्ड रिकवरी के लिए")
             
-            if st.button("✨ रजिस्टर करें"):
+            # रजिस्टर बटन के लिए विशेष हरी स्टाइलिंग
+            st.markdown("""
+            <style>
+                div[data-testid="stButton"] > button[key*="btn_reg_act"] {
+                    background-color: #27ae60 !important;
+                    border-color: #2ecc71 !important;
+                    box-shadow: 0 4px 0 #1e8449 !important;
+                }
+            </style>
+            """, unsafe_allow_html=True)
+
+            if st.button("✨ रजिस्टर करें", key="btn_reg_act"):
                 db = load_users()
                 users = db.get("users", {})
                 if not new_user.strip() or not new_pass.strip() or not sec_ans.strip():
-                    st.error("सभी फील्ड भरना अनिवार्य है!")
+                    st.error("⚠️ सभी फील्ड भरना अनिवार्य है!")
                 elif new_user in users:
-                    st.error("यह यूजरनेम पहले से मौजूद है!")
+                    st.error("⚠️ यह यूजरनेम पहले से मौजूद है!")
                 else:
                     users[new_user] = {
                         "password": new_pass,
@@ -292,7 +293,12 @@ if not st.session_state.logged_in:
                     }
                     db["users"] = users
                     save_users(db)
-                    st.success("अकाउंट बन गया है! अब 'लॉगिन' टैब में जाएं।")
+                    # स्पष्ट हाईलाइटेड पॉप-अप / बैनर जो स्क्रीन पर तुरंत दिखे
+                    st.markdown("""
+                    <div style="background-color: #1e8449; color: #ffffff; padding: 15px; border-radius: 8px; border: 2px solid #2ecc71; text-align: center; font-weight: bold; font-size: 16px; margin-top: 15px;">
+                        🎉 बधाई हो! अकाउंट सफलतापूर्वक बन गया है!<br>अब '🔑 लॉगिन' टैब में जाकर प्रवेश करें।
+                    </div>
+                    """, unsafe_allow_html=True)
 
         with tab_pass:
             st.markdown("<p style='color: #e74c3c; font-weight: bold; margin-top: 8px;'>पासवर्ड रीसेट करें:</p>", unsafe_allow_html=True)
@@ -301,26 +307,52 @@ if not st.session_state.logged_in:
             new_p1 = st.text_input("नया पासवर्ड", type="password", key="f_p1")
             new_p2 = st.text_input("नया पासवर्ड पुनश्च", type="password", key="f_p2")
             
-            if st.button("🔄 पासवर्ड अपडेट करें"):
+            # पासवर्ड रीसेट बटन के लिए विशेष नारंगी/ऑरेंज स्टाइलिंग
+            st.markdown("""
+            <style>
+                div[data-testid="stButton"] > button[key*="btn_pass_act"] {
+                    background-color: #d35400 !important;
+                    border-color: #e67e22 !important;
+                    box-shadow: 0 4px 0 #a04000 !important;
+                }
+            </style>
+            """, unsafe_allow_html=True)
+
+            if st.button("🔄 पासवर्ड अपडेट करें", key="btn_pass_act"):
                 db = load_users()
                 users = db.get("users", {})
                 if f_user not in users:
-                    st.error("यूजरनेम नहीं मिला!")
+                    st.error("⚠️ यूजरनेम नहीं मिला!")
                 elif users[f_user].get("security_answer", "") != f_ans.strip().lower():
-                    st.error("सुरक्षा उत्तर गलत है!")
+                    st.error("⚠️ सुरक्षा उत्तर गलत है!")
                 elif not new_p1.strip() or new_p1 != new_p2:
-                    st.error("पासवर्ड मैच नहीं हो रहे!")
+                    st.error("⚠️ पासवर्ड मैच नहीं हो रहे!")
                 else:
                     users[f_user]["password"] = new_p1
                     db["users"] = users
                     save_users(db)
-                    st.success("पासवर्ड बदल गया है! अब लॉगिन करें।")
+                    st.markdown("""
+                    <div style="background-color: #d35400; color: #ffffff; padding: 15px; border-radius: 8px; border: 2px solid #e67e22; text-align: center; font-weight: bold; font-size: 16px; margin-top: 15px;">
+                        🔄 पासवर्ड सफलतापूर्वक बदल गया है! अब लॉगिन करें।
+                    </div>
+                    """, unsafe_allow_html=True)
 
         with tab_user:
             st.markdown("<p style='color: #3498db; font-weight: bold; margin-top: 8px;'>अपना भूला हुआ यूजरनेम पता करें:</p>", unsafe_allow_html=True)
             f_sec_ans = st.text_input("रजिस्टर करते वक्त भरा गया 'गृह जिला'", key="find_sec_ans")
             
-            if st.button("🔍 यूजरनेम खोजें"):
+            # यूजरनेम खोजें बटन के लिए विशेष वॉयलेट/बैंगनी स्टाइलिंग
+            st.markdown("""
+            <style>
+                div[data-testid="stButton"] > button[key*="btn_user_act"] {
+                    background-color: #8e44ad !important;
+                    border-color: #9b59b6 !important;
+                    box-shadow: 0 4px 0 #512e5f !important;
+                }
+            </style>
+            """, unsafe_allow_html=True)
+
+            if st.button("🔍 यूजरनेम खोजें", key="btn_user_act"):
                 db = load_users()
                 users = db.get("users", {})
                 found_uname = None
@@ -329,9 +361,13 @@ if not st.session_state.logged_in:
                         found_uname = uname
                         break
                 if found_uname:
-                    st.success(f"आपका यूजरनेम है: **{found_uname}**")
+                    st.markdown(f"""
+                    <div style="background-color: #8e44ad; color: #ffffff; padding: 15px; border-radius: 8px; border: 2px solid #9b59b6; text-align: center; font-weight: bold; font-size: 16px; margin-top: 15px;">
+                        🔍 आपका भूला हुआ यूजरनेम है: <span style="color: #f4d03f; font-size: 18px;">{found_uname}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    st.error("इस सुरक्षा उत्तर से कोई यूजरनेम नहीं मिला!")
+                    st.error("⚠️ इस सुरक्षा उत्तर से कोई यूजरनेम नहीं मिला!")
         
         st.markdown('</div>', unsafe_allow_html=True)
                 
@@ -352,10 +388,20 @@ with col_welcome:
     """, unsafe_allow_html=True)
 
 with col_btn:
-    if st.button("🚪 लॉगआउट", use_container_width=True, help="अपने अकाउंट से सुरक्षित बाहर निकलें"):
+    # लॉगआउट बटन के लिए लाल रंग
+    st.markdown("""
+    <style>
+        div[data-testid="stButton"] > button[key*="btn_logout"] {
+            background-color: #c0392b !important;
+            border-color: #e74c3c !important;
+            box-shadow: 0 4px 0 #922b21 !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    if st.button("🚪 लॉगआउट", key="btn_logout", use_container_width=True, help="अपने अकाउंट से सुरक्षित बाहर निकलें"):
         st.session_state.logged_in = False
         st.session_state.username = ""
-        st.session_state.current_page = "dashboard"
+        st.session_state.page = "dashboard"
         st.rerun()
 
 PL_DATA_FILE = os.path.join("output", f"saved_pl_data_{current_user}.json")
@@ -497,16 +543,6 @@ def generate_sun_rays_svg():
 
 rays_svg_html = generate_sun_rays_svg()
 
-# =============================================================================
-# 7. सुरक्षित नेविगेशन सिस्टम (बिना लिंक के स्टेट-आधारित स्विचिंग)
-# =============================================================================
-if "page" not in st.session_state:
-    st.session_state.page = "dashboard"
-
-def go_to_page(p_name):
-    st.session_state.page = p_name
-    st.rerun()
-
 active_page = st.session_state.page
 
 # =============================================================================
@@ -573,7 +609,17 @@ if active_page == "dashboard":
 # पृष्ठ 2: उपार्जित अवकाश समर्पण (PL Surrender) विंडो
 # =============================================================================
 elif active_page == "pl_surrender":
-    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ"):
+    # मुख्य डैशबोर्ड पर वापस जाने का बटन (लाल रंग)
+    st.markdown("""
+    <style>
+        div[data-testid="stButton"] > button[key*="btn_back_dash"] {
+            background-color: #c0392b !important;
+            border-color: #e74c3c !important;
+            box-shadow: 0 4px 0 #922b21 !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="btn_back_dash"):
         go_to_page("dashboard")
 
     if "pl_bundle_loaded" not in st.session_state:
@@ -773,7 +819,16 @@ elif active_page == "pl_surrender":
 # पृष्ठ 3: सामयिक वार्षिक वेतन वृद्धि (Annual Increment) विंडो
 # =============================================================================
 elif active_page == "increment_order":
-    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ"):
+    st.markdown("""
+    <style>
+        div[data-testid="stButton"] > button[key*="btn_back_dash"] {
+            background-color: #c0392b !important;
+            border-color: #e74c3c !important;
+            box-shadow: 0 4px 0 #922b21 !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="btn_back_dash"):
         go_to_page("dashboard")
 
     if "inc_bundle_loaded" not in st.session_state:
@@ -988,7 +1043,16 @@ elif active_page == "increment_order":
 # पृष्ठ 4: संचालन पोर्टल भुगतान स्वीकृति आदेश (Sanchalan Portal Sanction) विंडो
 # =============================================================================
 elif active_page == "sanchalan_portal":
-    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ"):
+    st.markdown("""
+    <style>
+        div[data-testid="stButton"] > button[key*="btn_back_dash"] {
+            background-color: #c0392b !important;
+            border-color: #e74c3c !important;
+            box-shadow: 0 4px 0 #922b21 !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="btn_back_dash"):
         go_to_page("dashboard")
 
     if "san_bundle_loaded" not in st.session_state:
