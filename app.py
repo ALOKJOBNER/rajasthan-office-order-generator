@@ -4,6 +4,7 @@ import math
 import os
 import json
 from datetime import datetime
+from auth_utils import render_auth_portal
 
 # 1. पेज कॉन्फ़िगरेशन
 st.set_page_config(
@@ -11,9 +12,8 @@ st.set_page_config(
     page_icon="📜",
     layout="wide"
 )
-from auth_utils import render_auth_portal
 
-# लॉगिन पोर्टल कॉल करें (जब तक यूजर लॉगिन नहीं करेगा, यह आगे के कोड को रोके रखेगा)
+# --- स्थायी लॉगिन और सेशन मैनेजमेंट (यहाँ से लॉगिन हैंडल होगा) ---
 render_auth_portal()
 # 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक
 PL_DATA_FILE = os.path.join("output", "saved_pl_data.json")
