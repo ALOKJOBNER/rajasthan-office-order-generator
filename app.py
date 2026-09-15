@@ -7,34 +7,36 @@ from datetime import datetime
 
 # 1. पेज कॉन्फ़िगरेशन
 st.set_page_config(
-    page_title="राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर सॉफ्टवेयर",
-    page_icon="📜",
-    layout="wide"
-)
-from auth_utils import load_users, register_user, verify_user, recover_username, reset_password
+    from auth_utils import load_users, register_user, verify_user, recover_username, reset_password
 
-# --- LOGIN & AUTHENTICATION WRAPPER ---
+# --- SECURE THEME-MATCHED LOGIN & AUTHENTICATION WRAPPER ---
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "logged_in_user" not in st.session_state:
     st.session_state.logged_in_user = ""
 
 if not st.session_state.authenticated:
+    # सॉफ्टवेयर की मूल थीम से मिलता हुआ आकर्षक डिज़ाइन
     st.markdown("""
-    <div style="max-width: 450px; margin: 40px auto; background: #132743; padding: 25px; border-radius: 12px; border: 2px solid #f4d03f; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
-        <h2 style="color: #f4d03f; text-align: center; margin-bottom: 10px;">सॉफ्टवेयर लॉगिन पोर्टल</h2>
-        <p style="color: #aed6f1; text-align: center; font-size: 13px; margin-bottom: 20px;">Kripya apne credential se login karein ya naya account banayein.</p>
+    <div style="max-width: 500px; margin: 30px auto; background: #132743; padding: 25px; border-radius: 12px; border: 2px solid #f4d03f; box-shadow: 0 0 20px rgba(0,0,0,0.8);">
+        <div style="text-align: center; margin-bottom: 15px;">
+            <h2 style="color: #f4d03f; margin: 0; font-size: 22px;">🔐 सॉफ्टवेयर लॉगिन पोर्टल</h2>
+            <p style="color: #aed6f1; font-size: 13px; margin-top: 5px; font-style: italic;">
+                राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर सॉफ्टवेयर
+            </p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
-    auth_tab1, auth_tab2, auth_tab3, auth_tab4 = st.tabs(["🔐 Login", "📝 Register", "🔑 Forgot Password", "👤 Forgot Username"])
+    # टैब्स को सॉफ्टवेयर के रंगों के अनुकूल दिखाने के लिए कंटेनर
+    auth_tab1, auth_tab2, auth_tab3, auth_tab4 = st.tabs(["🔑 Login", "📝 Register", "❓ Forgot Password", "👤 Forgot Username"])
     
     with auth_tab1:
-        st.subheader("Login to Software")
-        with st.form("login_form"):
+        st.markdown("<p style='color: #5dade2; font-weight: bold;'>अपने क्रेडेंशियल दर्ज करके प्रवेश करें:</p>", unsafe_allow_html=True)
+        with st.form("login_form_secure"):
             l_user = st.text_input("User ID / Username")
             l_pass = st.text_input("Password", type="password")
-            l_sub = st.form_submit_button("Login Karein")
+            l_sub = st.form_submit_button("🚀 लॉगिन करें")
             if l_sub:
                 success, msg = verify_user(l_user, l_pass)
                 if success:
@@ -46,16 +48,16 @@ if not st.session_state.authenticated:
                     st.error(msg)
                     
     with auth_tab2:
-        st.subheader("Naya Registration Karein")
-        with st.form("reg_form"):
-            r_user = st.text_input("Naya User ID / Username चुने")
-            r_pass = st.text_input("Password चुने", type="password")
+        st.markdown("<p style='color: #2ecc71; font-weight: bold;'>नया खाता बनाएं (केवल पहली बार):</p>", unsafe_allow_html=True)
+        with st.form("reg_form_secure"):
+            r_user = st.text_input("नया User ID / Username चुनें")
+            r_pass = st.text_input("Password चुनें", type="password")
             r_name = st.text_input("पूरा नाम (Full Name)")
-            r_email = st.text_input("Email ID (Password recovery ke liye)")
-            r_sub = st.form_submit_button("Register Karein")
+            r_email = st.text_input("Email ID (पासवर्ड रिकवरी हेतु)")
+            r_sub = st.form_submit_button("✨ रजिस्टर करें")
             if r_sub:
                 if not r_user or not r_pass or not r_name or not r_email:
-                    st.error("Kripya sabhi fields bharein!")
+                    st.error("कृपया सभी फील्ड्स अनिवार्य रूप से भरें!")
                 else:
                     success, msg = register_user(r_user, r_pass, r_name, r_email)
                     if success:
@@ -64,12 +66,12 @@ if not st.session_state.authenticated:
                         st.error(msg)
                         
     with auth_tab3:
-        st.subheader("Forgot Password")
-        with st.form("fp_form"):
-            fp_user = st.text_input("Apna User ID dalein")
-            fp_email = st.text_input("Registered Email ID dalein")
-            fp_new = st.text_input("Naya Password dalein", type="password")
-            fp_sub = st.form_submit_button("Password Reset Karein")
+        st.markdown("<p style='color: #f39c12; font-weight: bold;'>पासवर्ड रीसेट करें:</p>", unsafe_allow_html=True)
+        with st.form("fp_form_secure"):
+            fp_user = st.text_input("अपना User ID दर्ज करें")
+            fp_email = st.text_input("पंजीकृत (Registered) Email ID दर्ज करें")
+            fp_new = st.text_input("नया Password दर्ज करें", type="password")
+            fp_sub = st.form_submit_button("🔄 पासवर्ड बदलें")
             if fp_sub:
                 success, msg = reset_password(fp_user, fp_email, fp_new)
                 if success:
@@ -78,11 +80,11 @@ if not st.session_state.authenticated:
                     st.error(msg)
                     
     with auth_tab4:
-        st.subheader("Forgot Username")
-        with st.form("fu_form"):
-            fu_name = st.text_input(" Apna Pura Naam (Full Name) dalein")
-            fu_email = st.text_input("Registered Email ID dalein")
-            fu_sub = st.form_submit_button("User ID Pata Karein")
+        st.markdown("<p style='color: #e74c3c; font-weight: bold;'>यूजर आईडी का पता लगाएं:</p>", unsafe_allow_html=True)
+        with st.form("fu_form_secure"):
+            fu_name = st.text_input("अपना पूरा नाम (Full Name) दर्ज करें")
+            fu_email = st.text_input("पंजीकृत (Registered) Email ID दर्ज करें")
+            fu_sub = st.form_submit_button("🔍 यूजर आईडी खोजें")
             if fu_sub:
                 success, msg = recover_username(fu_name, fu_email)
                 if success:
@@ -91,10 +93,15 @@ if not st.session_state.authenticated:
                     st.error(msg)
     st.stop()
 else:
-    # Sidebar par logged-in user ka naam aur Logout button dikhane ke liye
+    # साइडबार पर लॉगिन यूजर का नाम और लॉगआउट बटन
     with st.sidebar:
-        st.markdown(f"👤 **Logined User:** `{st.session_state.logged_in_user}`")
-        if st.button("🚪 Logout"):
+        st.markdown(f"""
+        <div style="background-color: #132743; padding: 10px; border-radius: 6px; border: 1px solid #f4d03f; text-align: center; margin-bottom: 10px;">
+            <p style="color: #f4d03f; margin: 0; font-size: 13px;"><b>सक्रिय यूजर (Logged In)</b></p>
+            <p style="color: #2ecc71; margin: 5px 0 0 0; font-size: 15px;"><b>{st.session_state.logged_in_user}</b></p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🚪 सुरक्षित लॉगआउट (Logout)"):
             st.session_state.authenticated = False
             st.session_state.logged_in_user = ""
             st.rerun()
