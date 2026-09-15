@@ -4,7 +4,6 @@ import math
 import os
 import json
 from datetime import datetime
-from auth_utils import render_auth_portal
 
 # 1. पेज कॉन्फ़िगरेशन
 st.set_page_config(
@@ -13,10 +12,6 @@ st.set_page_config(
     layout="wide"
 )
 
-from auth_utils import render_auth_portal
-
-# लॉगिन और सेशन सुरक्षा जांच
-render_auth_portal()
 # 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक
 PL_DATA_FILE = os.path.join("output", "saved_pl_data.json")
 INC_DATA_FILE = os.path.join("output", "saved_increment_data.json")
