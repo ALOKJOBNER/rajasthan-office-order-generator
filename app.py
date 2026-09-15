@@ -11,47 +11,97 @@ st.set_page_config(
     page_icon="📜",
     layout="wide"
 )
+import streamlit as st
+import base64
+import math
+import os
+import json
+from datetime import datetime
 
-# 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक
-PL_DATA_FILE = os.path.join("output", "saved_pl_data.json")
-INC_DATA_FILE = os.path.join("output", "saved_increment_data.json")
-SAN_DATA_FILE = os.path.join("output", "saved_sanchalan_data.json")
+# 1. पेज कॉन्फ़िगरेशन
+st.set_page_config(
+    page_title="राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर सॉफ्टवेयर",
+    page_icon="📜",
+    layout="wide"
+)
+# =============================================================================
+# यूजर ऑथेंटिकेशन (Login & Sign-up) सिस्टम
+# =============================================================================
+USERS_DB_FILE = "users_db.json"
+
+def load_users():
+    if os.path.exists(USERS_DB_FILE):
+        try:
+            with open(USERS_DB_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {"users": {}}
+    return {"users": {}}
+
+def save_users(data):
+    with open(USERS_DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+
+if not st.session_state.logged_in:
+    st.markdown("""
+    <div style="text-align: center; padding: 20px;">
+        <h2 style="color: #f4d03f;">राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर सॉफ्टवेयर</h2>
+        <p style="color: #aed6f1;">कृपया आगे बढ़ने के लिए लॉगिन करें या नया अकाउंट बनाएं (सुरक्षित मल्टी-यूजर मोड)</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    tab_login, tab_signup = st.tabs(["🔑 लॉगिन (Login)", "📝 नया अकाउंट बनाएं (Sign Up)"])
+    
+    with tab_login:
+        st.subheader("अपने अकाउंट से लॉगिन करें")
+        login_user = st.text_input("यूजरनेम (Username)", key="login_u")
+        login_pass = st.text_input("पासवर्ड (Password)", type="password", key="login_p")
+        
+        if st.button("लॉगिन करें"):
+            db = load_users()
+            users = db.get("users", {})
+            if login_user in users and users[login_user]["password"] == login_pass:
+                st.session_state.logged_in = True
+                st.session_state.username = login_user
+                st.success("लॉगिन सफल रहा!")
+                st.rerun()
+            else:
+                st.error("गलत यूजरनेम या पासवर्ड!")
+                
+    with tab_signup:
+        st.subheader("नया अकाउंट रजिस्टर करें")
+        new_user = st.text_input("नया यूजरनेम बनाएं", key="signup_u")
+        new_pass = st.text_input("नया पासवर्ड बनाएं", type="password", key="signup_p")
+        
+        if st.button("रजिस्टर करें"):
+            db = load_users()
+            users = db.get("users", {})
+            if not new_user.strip() or not new_pass.strip():
+                st.error("यूजरनेम और पासवर्ड खाली नहीं हो सकते!")
+            elif new_user in users:
+                st.error("यह यूजरनेम पहले से मौजूद है, दूसरा चुनें!")
+            else:
+                users[new_user] = {"password": new_pass}
+                db["users"] = users
+                save_users(db)
+                st.success("अकाउंट सफलतापूर्वक बन गया है! अब आप 'लॉगिन' टैब में जाकर प्रवेश कर सकते हैं।")
+                
+    st.stop()
+# 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक (यूजर-वाइज आइसोलेशन के साथ)
+current_user = st.session_state.get("username", "default_user")
+
+PL_DATA_FILE = os.path.join("output", f"saved_pl_data_{current_user}.json")
+INC_DATA_FILE = os.path.join("output", f"saved_increment_data_{current_user}.json")
+SAN_DATA_FILE = os.path.join("output", f"saved_sanchalan_data_{current_user}.json")
+
 MASTER_VENDORS_FILE = "master_vendors.json"
 MASTER_SCHOOLS_FILE = "master_schools.json"
 MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
-
-def load_json_data(file_path, default_val=None):
-    if default_val is None:
-        default_val = {"office_data": {}, "employees": []}
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return default_val
-    return default_val
-
-def save_json_data(file_path, data):
-    os.makedirs("output", exist_ok=True)
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-def load_json_file(filename, default_val):
-    if os.path.exists(filename):
-        try:
-            with open(filename, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return default_val
-    return default_val
-
-def save_json_file(filename, data):
-    try:
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-    except Exception:
-        pass
-
 # 3. ग्लोबल डेटा डेफिनिशन
 DESIG_LIST = [
     "वरिष्ठ अध्यापक", "प्रधानाचार्य", "उप प्रधानाचार्य", "व्याख्याता", 
