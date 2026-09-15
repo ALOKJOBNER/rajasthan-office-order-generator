@@ -94,6 +94,7 @@ if not st.session_state.authenticated:
                 else:
                     st.error(msg)
     st.stop()
+
 else:
     with st.sidebar:
         st.markdown(f"""
