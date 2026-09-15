@@ -95,7 +95,7 @@ if not st.session_state.authenticated:
                     st.error(msg)
     st.stop()
 
-# जब यूजर लॉगिन हो जाएगा, तब यह साइडबार दिखाई देगा (यहाँ कोई 'else:' नहीं है, इसलिए सिंटेक्स एरर नहीं आएगा)
+# जब यूजर लॉगिन हो जाएगा, तब यह साइडबार और बाकी सॉफ्टवेयर दिखाई देगा
 with st.sidebar:
     st.markdown(f"""
     <div style="background-color: #132743; padding: 10px; border-radius: 6px; border: 1px solid #f4d03f; text-align: center; margin-bottom: 10px;">
@@ -107,19 +107,7 @@ with st.sidebar:
         st.session_state.authenticated = False
         st.session_state.logged_in_user = ""
         st.rerun()
-else:
-    # साइडबार पर लॉगिन यूजर का नाम और लॉगआउट बटन
-    with st.sidebar:
-        st.markdown(f"""
-        <div style="background-color: #132743; padding: 10px; border-radius: 6px; border: 1px solid #f4d03f; text-align: center; margin-bottom: 10px;">
-            <p style="color: #f4d03f; margin: 0; font-size: 13px;"><b>सक्रिय यूजर (Logged In)</b></p>
-            <p style="color: #2ecc71; margin: 5px 0 0 0; font-size: 15px;"><b>{st.session_state.logged_in_user}</b></p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("🚪 सुरक्षित लॉगआउट (Logout)"):
-            st.session_state.authenticated = False
-            st.session_state.logged_in_user = ""
-            st.rerun()
+
 # 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक
 PL_DATA_FILE = os.path.join("output", "saved_pl_data.json")
 INC_DATA_FILE = os.path.join("output", "saved_increment_data.json")
@@ -289,178 +277,78 @@ def generate_sun_rays_svg():
 
 rays_svg_html = generate_sun_rays_svg()
 
-# अचूक CSS: सभी प्रकार के बटन्स (फॉर्म, नॉर्मल, डिलीट, सेव, रीसेट) और रेडियो टेक्स्ट का रंग सही करना
 st.markdown("""
 <style>
     .stApp { background-color: #0c1d36; color: #ffffff; }
-    
     .main-header {
         background: linear-gradient(90deg, #102a45, #1b4f72);
-        padding: 16px;
-        border-radius: 10px;
-        text-align: center;
-        border: 2px solid #f4d03f;
-        margin-bottom: 20px;
+        padding: 16px; border-radius: 10px; text-align: center; border: 2px solid #f4d03f; margin-bottom: 20px;
     }
-    
     .profile-card {
-        background-color: #132743;
-        padding: 18px;
-        border-radius: 12px;
-        border: 1px solid #f39c12;
-        text-align: center;
+        background-color: #132743; padding: 18px; border-radius: 12px; border: 1px solid #f39c12; text-align: center;
     }
-
     .sun-box {
-        position: relative;
-        width: 260px;
-        height: 260px;
-        margin: 0 auto 5px auto;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        position: relative; width: 260px; height: 260px; margin: 0 auto 5px auto; display: flex; align-items: center; justify-content: center;
     }
-
     .spinning-rays {
-        position: absolute;
-        animation: spinClockwise 12s linear infinite;
-        z-index: 1;
+        position: absolute; animation: spinClockwise 12s linear infinite; z-index: 1;
     }
-
     @keyframes spinClockwise {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
-
     .profile-center-img {
-        position: relative;
-        width: 130px;
-        height: 130px;
-        border-radius: 50%;
-        border: 3px solid #f39c12;
-        background-size: cover;
-        background-position: center 25%;
-        z-index: 2;
-        box-shadow: 0 0 16px rgba(0,0,0,0.8);
+        position: relative; width: 130px; height: 130px; border-radius: 50%; border: 3px solid #f39c12; background-size: cover; background-position: center 25%; z-index: 2; box-shadow: 0 0 16px rgba(0,0,0,0.8);
     }
-
     .scope-box {
-        background-color: #132743;
-        border: 1px solid #f4d03f;
-        border-radius: 8px;
-        padding: 14px 18px;
-        margin-bottom: 20px;
-        font-size: 13.5px;
-        line-height: 1.6;
+        background-color: #132743; border: 1px solid #f4d03f; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; font-size: 13.5px; line-height: 1.6;
     }
-
-    /* सभी लेबल्स और रेडियो बटन्स के टेक्स्ट को स्पष्ट पीला/सफेद रखना */
     label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span, .stRadio label p, div[data-baseweb="radio"] div {
-        color: #f4d03f !important;
-        font-size: 14.5px !important;
-        font-weight: bold !important;
-        opacity: 1 !important;
+        color: #f4d03f !important; font-size: 14.5px !important; font-weight: bold !important; opacity: 1 !important;
     }
-
-    /* इनपुट, सेलेक्ट और टेक्स्ट एरिया */
     input, select, textarea, [data-baseweb="select"], [data-baseweb="textarea"] {
-        background-color: #1c3b60 !important;
-        color: #ffffff !important;
-        font-weight: bold !important;
-        border: 1px solid #2e5b88 !important;
-        border-radius: 6px !important;
+        background-color: #1c3b60 !important; color: #ffffff !important; font-weight: bold !important; border: 1px solid #2e5b88 !important; border-radius: 6px !important;
     }
-
-    /* एक्सपेंडर */
     [data-testid="stExpander"] {
-        background-color: #132743 !important;
-        border: 1px solid #f4d03f !important;
-        border-radius: 8px !important;
+        background-color: #132743 !important; border: 1px solid #f4d03f !important; border-radius: 8px !important;
     }
     [data-testid="stExpander"] summary span {
-        color: #f4d03f !important;
-        font-weight: bold !important;
+        color: #f4d03f !important; font-weight: bold !important;
     }
-    .stExpander textarea {
-        background-color: #0c1d36 !important;
-        color: #2ecc71 !important;
-        font-family: monospace !important;
-        font-size: 12.5px !important;
-    }
-
     .menu-btn-pl {
-        display: block; width: 100%; background-color: #1f618d; color: #ffffff !important;
-        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
-        border-radius: 8px; border: 2px solid #2980b9; box-shadow: 0 5px 0 #154360; margin-bottom: 14px; text-align: left;
+        display: block; width: 100%; background-color: #1f618d; color: #ffffff !important; text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold; border-radius: 8px; border: 2px solid #2980b9; box-shadow: 0 5px 0 #154360; margin-bottom: 14px; text-align: left;
     }
     .menu-btn-pl:hover { background-color: #2980b9; }
-
     .menu-btn-inc {
-        display: block; width: 100%; background-color: #27ae60; color: #ffffff !important;
-        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
-        border-radius: 8px; border: 2px solid #2ecc71; box-shadow: 0 5px 0 #1e8449; margin-bottom: 14px; text-align: left;
+        display: block; width: 100%; background-color: #27ae60; color: #ffffff !important; text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold; border-radius: 8px; border: 2px solid #2ecc71; box-shadow: 0 5px 0 #1e8449; margin-bottom: 14px; text-align: left;
     }
     .menu-btn-inc:hover { background-color: #2ecc71; }
-
     .menu-btn-san {
-        display: block; width: 100%; background-color: #8e44ad; color: #ffffff !important;
-        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
-        border-radius: 8px; border: 2px solid #9b59b6; box-shadow: 0 5px 0 #512e5f; margin-bottom: 14px; text-align: left;
+        display: block; width: 100%; background-color: #8e44ad; color: #ffffff !important; text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold; border-radius: 8px; border: 2px solid #9b59b6; box-shadow: 0 5px 0 #512e5f; margin-bottom: 14px; text-align: left;
     }
     .menu-btn-san:hover { background-color: #9b59b6; }
-
     .menu-btn-rel {
-        display: block; width: 100%; background-color: #212f3d; color: #a6acaf !important;
-        text-decoration: none !important; padding: 13px 20px; font-size: 15px; border-radius: 8px;
-        border: 1px solid #34495e; box-shadow: 0 4px 0 #17202a; text-align: left;
+        display: block; width: 100%; background-color: #212f3d; color: #a6acaf !important; text-decoration: none !important; padding: 13px 20px; font-size: 15px; border-radius: 8px; border: 1px solid #34495e; box-shadow: 0 4px 0 #17202a; text-align: left;
     }
-
     .back-btn {
-        display: inline-block; background-color: #c0392b; color: #ffffff !important;
-        text-decoration: none !important; padding: 8px 18px; font-size: 14px; font-weight: bold;
-        border-radius: 6px; border: 1px solid #e74c3c; margin-bottom: 15px;
+        display: inline-block; background-color: #c0392b; color: #ffffff !important; text-decoration: none !important; padding: 8px 18px; font-size: 14px; font-weight: bold; border-radius: 6px; border: 1px solid #e74c3c; margin-bottom: 15px;
     }
     .back-btn:hover { background-color: #e74c3c; }
-
-    /* ========================================================== */
-    /* यूनिवर्सल बटन कलर फिक्स: स्ट्रीमलिट के सभी बटन्स को जबरन रंगीन व पाठ्य बनाना */
-    /* ========================================================== */
     button, div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
-        background-color: #2980b9 !important;
-        color: #ffffff !important;
-        font-weight: bold !important;
-        border: 2px solid #3498db !important;
-        border-radius: 6px !important;
-        box-shadow: 0 4px 0 #1b4f72 !important;
+        background-color: #2980b9 !important; color: #ffffff !important; font-weight: bold !important; border: 2px solid #3498db !important; border-radius: 6px !important; box-shadow: 0 4px 0 #1b4f72 !important;
     }
     button *, div.stButton > button *, div[data-testid="stFormSubmitButton"] > button * {
-        color: #ffffff !important;
-        font-weight: bold !important;
+        color: #ffffff !important; font-weight: bold !important;
     }
-
-    /* फॉर्म सबमिट बटन (हरा रंग) */
     div[data-testid="stFormSubmitButton"] > button {
-        background-color: #27ae60 !important;
-        border-color: #2ecc71 !important;
-        box-shadow: 0 4px 0 #1e8449 !important;
+        background-color: #27ae60 !important; border-color: #2ecc71 !important; box-shadow: 0 4px 0 #1e8449 !important;
     }
-
-    /* डाउनलोड / आदेश जनरेट बटन (नारंगी रंग) */
     div[data-testid="stDownloadButton"] > button {
-        background-color: #d35400 !important;
-        border: 2px solid #e67e22 !important;
-        border-radius: 8px !important;
-        box-shadow: 0 6px 0 #a04000 !important;
-        width: 100% !important;
-        padding: 14px !important;
-        margin-top: 15px !important;
+        background-color: #d35400 !important; border: 2px solid #e67e22 !important; border-radius: 8px !important; box-shadow: 0 6px 0 #a04000 !important; width: 100% !important; padding: 14px !important; margin-top: 15px !important;
     }
     div[data-testid="stDownloadButton"] > button * {
-        color: #ffffff !important;
-        font-size: 17px !important;
-        font-weight: 800 !important;
+        color: #ffffff !important; font-size: 17px !important; font-weight: 800 !important;
     }
-
     .custom-table {
         width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px;
     }
@@ -514,7 +402,7 @@ if active_page == "dashboard":
         st.markdown("""
         <div class="scope-box">
             <span style="color: #f4d03f; font-weight: bold; font-size: 15px;">सॉफ्टवेयर के कार्य एवं भावी विस्तार योजना:</span><br>
-            <span style="color: #2ecc71;">✔ वर्तमान क्षमताएं:</span> उपार्जित अवकाश (PL Surrender) की सटीक नियमानुसार ऑटो-कैलकुलेशन, वार्षिक सामयिक वेतन वृद्धि (Annual Increment - जनवरी एवं जुलाई चक्र) आदेश 7th पे-मैट्रिक्स स्वतः गणना, संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Payment Sanction Order), मल्टीपल कार्मिक/वेंडर प्रविष्टि, लैंडस्केप व पोर्ट्रेट सटीक बॉर्डर प्रिंट आदेश[cite: 5].<br>
+            <span style="color: #2ecc71;">✔ वर्तमान क्षमताएं:</span> उपार्जित अवकाश (PL Surrender) की सटीक नियमानुसार ऑटो-कैलकुलेशन, वार्षिक सामयिक वेतन वृद्धि (Annual Increment - जनवरी एवं जुलाई चक्र) आदेश 7th पे-मैट्रिक्स स्वतः गणना, संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Payment Sanction Order), मल्टीपल कार्मिक/वेंडर प्रविष्टि, लैंडस्केप व पोर्ट्रेट सटीक बॉर्डर प्रिंट आदेश.<br>
             <span style="color: #f39c12;">🚀 भविष्य में संभावित कार्य:</span> कार्यमुक्ति (Relieving) व कार्यग्रहण (Joining) आदेश, बाल देखरेख अवकाश (CCL) स्वीकृति, स्थायीकरण (Confirmation) आदेश तथा समस्त वित्तीय व प्रशासनिक स्वीकृतियों का केंद्रीकृत स्वचालन।
         </div>
         """, unsafe_allow_html=True)
@@ -707,7 +595,7 @@ elif active_page == "pl_surrender":
           .sig-container {{ width: 100%; display: flex; justify-content: flex-end; margin-bottom: 10px; }}
           .sig-box {{ text-align: center; min-width: 230px; line-height: 1.35; }}
           .sig-space {{ height: 48px; }}
-          .dispatch-section {{ border-top: 1px dashed #777; padding-top: 8px; margin-top: 6px; }}
+          .dispatch-section {{ border-top: 1px dashed #777; padding-top: 8mm; margin-top: 6px; }}
           .dispatch-row {{ width: 100%; display: flex; justify-content: space-between; font-size: 10pt; font-weight: bold; margin-bottom: 6px; }}
           .copy-list {{ margin: 4px 0 10px 25px; padding: 0; font-size: 9.5pt; line-height: 1.55; }}
           .footer-outside {{ margin-top: 4px; font-size: 8pt; color: #333; display: flex; justify-content: space-between; }}
@@ -921,7 +809,7 @@ elif active_page == "increment_order":
           .sig-container {{ width: 100%; display: flex; justify-content: flex-end; margin-bottom: 10px; }}
           .sig-box {{ text-align: center; min-width: 230px; line-height: 1.35; }}
           .sig-space {{ height: 48px; }}
-          .dispatch-section {{ border-top: 1px dashed #777; padding-top: 8px; margin-top: 6px; }}
+          .dispatch-section {{ border-top: 1px dashed #777; padding-top: 8mm; margin-top: 6px; }}
           .dispatch-row {{ width: 100%; display: flex; justify-content: space-between; font-size: 10pt; font-weight: bold; margin-bottom: 6px; }}
           .copy-list {{ margin: 4px 0 10px 25px; padding: 0; font-size: 9.5pt; line-height: 1.5; }}
           .footer-outside {{ margin-top: 4px; font-size: 8pt; color: #333; display: flex; justify-content: space-between; }}
@@ -1006,7 +894,6 @@ elif active_page == "sanchalan_portal":
     </div>
     """, unsafe_allow_html=True)
 
-    # मास्टर डेटा प्रबंधन एक्सपेंडर (पूर्णतः दृश्यमान टेक्स्ट और बटन्स के साथ)
     with st.expander("⚙️ मास्टर डेटा प्रबंधन (स्कूल, वेंडर और 29 एम्प्लॉयीज बेनिफिशियरी देखें/बदले)"):
         st.markdown("<span style='color: #f4d03f; font-weight: bold;'>आप यहाँ अपनी आवश्यकतानुसार मास्टर डेटा JSON प्रारूप में अपडेट कर सकते हैं:</span>", unsafe_allow_html=True)
         
@@ -1025,13 +912,10 @@ elif active_page == "sanchalan_portal":
             try:
                 s_list = [s.strip() for s in edit_schools.split(",") if s.strip()]
                 save_json_file(MASTER_SCHOOLS_FILE, {"schools": s_list})
-                
                 v_dict = json.loads(edit_vendors)
                 save_json_file(MASTER_VENDORS_FILE, {"vendors": v_dict})
-                
                 b_dict = json.loads(edit_bens)
                 save_json_file(MASTER_BENEFICIARIES_FILE, {"beneficiaries": b_dict})
-                
                 st.success("मास्टर डेटा सफलतापूर्वक अपडेट हो गया है! कृपया पेज रिफ्रेश करें।")
             except Exception as e:
                 st.error(f"डेटा सहेजने में विफल (JSON फॉर्मेट जांचें): {e}")
@@ -1062,7 +946,6 @@ elif active_page == "sanchalan_portal":
         san_firm = st.selectbox("फर्म/प्राप्तकर्ता का नाम:", list(vendor_dict.keys()), key="w_san_firm")
     with r_col2:
         san_reimb = st.radio("पुनर्भरण (Reimbursement):", ["No (नहीं)", "Yes (हाँ)"], horizontal=True, key="w_san_reimb_radio")
-        
         san_ben = ""
         if "Yes" in san_reimb:
             san_ben = st.selectbox("बेनिफिशियरी (29 कार्मिक चुनें):", list(ben_dict.keys()), key="w_san_ben_sel")
@@ -1087,7 +970,7 @@ elif active_page == "sanchalan_portal":
         comp_opts = SNA_COMPONENTS.get(san_level, SNA_COMPONENTS["SEC"])
         san_comp = st.selectbox("कंपोनेंट चयन:", comp_opts, key="w_san_comp")
 
-    if st.button("➕ पंक्ति तालिका में जोड़ें", key="btn_add_san_row"):
+    if st.button("➕ पंक्ति तालिका में जोड़ें", key="btn_add_san_row"):
         if not san_firm.strip() or not san_bill.strip():
             st.error("कृपया फर्म का नाम और बिल संख्या अवश्य भरें!")
         else:
@@ -1109,7 +992,7 @@ elif active_page == "sanchalan_portal":
                 "order_no": san_order_no.strip()
             }
             save_json_data(SAN_DATA_FILE, {"office_data": cur_off, "items": st.session_state.san_items})
-            st.success("भुगतान विवरण तालिका में सफलताપूर्वक जोड़ दिया गया है!")
+            st.success("भुगतान विवरण तालिका में सफलतापूर्वक जोड़ दिया गया है!")
             st.rerun()
 
     if st.session_state.san_items:
@@ -1229,7 +1112,7 @@ elif active_page == "sanchalan_portal":
             return h
 
         page1_rows = get_san_rows_html(page1_data, 1)
-        developer_text = "सॉफ्टवेयर डेवलपर: आलोक कुमार सिंह, वरिष्ठ अध्यापक, राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी | ईमेल: alokjobner@gmail.com"
+        developer_text = "सॉफ्टवेयर डेवलपर: आलोक कुमार सिंह, वरिष्ठ अध्यापक, राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी | ईमेल: alokjobner@gmail.com"
 
         if not page2_data:
             san_html = f"""<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Sanchalan Payment Sanction Order</title>
@@ -1347,7 +1230,7 @@ elif active_page == "sanchalan_portal":
             <div class='page-box'>
                 <table>
                     <tr>
-                        <th>ค.स.</th><th>संस्था का नाम</th><th>फर्म का नाम / प्राप्तकर्ता</th>
+                        <th>क.स.</th><th>संस्था का नाम</th><th>फर्म का नाम / प्राप्तकर्ता</th>
                         <th>खाता संख्या व IFSC कोड / विशिष्ट टिप्पणी</th><th>बिल/वाउचर सं. एवं दिनांक</th>
                         <th>राशि (₹)</th><th>पुनर्भरण</th><th>कंपोनेंट व स्तर (SEC/ELE)</th>
                     </tr>
