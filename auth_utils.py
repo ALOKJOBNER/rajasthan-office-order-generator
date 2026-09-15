@@ -62,13 +62,13 @@ def reset_password(username, email, new_password):
     return False, "❌ यह User ID सिस्टम में मौजूद नहीं है।"
 
 def render_auth_portal():
-    # स्ट्रीमलिट सेशन स्टेट को सुरक्षित रखना ताकि मॉड्यूल बदलने पर लॉगआउट न हो
+    # सेशन स्टेट इनिशियलाइज करें
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     if "logged_in_user" not in st.session_state:
         st.session_state.logged_in_user = ""
 
-    # यदि यूजर पहले से लॉगिन है, तो पोर्टल रोकें नहीं, सीधा सॉफ्टवेयर चलने दें
+    # यदि यूजर पहले से लॉगिन है, तो साइडबार में यूजर नाम और लॉगआउट दिखाएं और आगे बढ़ने दें
     if st.session_state.authenticated:
         with st.sidebar:
             st.markdown(f"""
@@ -81,9 +81,9 @@ def render_auth_portal():
                 st.session_state.authenticated = False
                 st.session_state.logged_in_user = ""
                 st.rerun()
-        return  # यहाँ से फंक्शन बाहर आ जाएगा और app.py का मूल कोड बिना रुकावट चलेगा
+        return
 
-    # CSS स्टाइलिंग ताकि बटन्स और टेक्स्ट पूरी तरह स्पष्ट और कलरफुल दिखें
+    # लॉगिन पेज की आकर्षक CSS और कंट्रास्ट सेटिंग्स
     st.markdown("""
     <style>
         .auth-card {
@@ -185,5 +185,4 @@ def render_auth_portal():
                 else:
                     st.error(msg)
                     
-    # जब तक यूजर लॉगिन न हो, तब तक सॉफ्टवेयर के मूल भाग को रोक कर रखेगा
     st.stop()
