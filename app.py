@@ -1,12 +1,9 @@
-import streamlit as str_module
+import streamlit as st
 import base64
 import math
 import os
 import json
 from datetime import datetime
-
-# संक्षेप नाम के लिए एलियास
-st = str_module
 
 # 1. पेज कॉन्फ़िगरेशन
 st.set_page_config(
@@ -51,7 +48,7 @@ def save_json_file(filename, data):
         pass
 
 # =============================================================================
-# 3. यूजर ऑथेंटिकेशन (Login, Sign-up, Forgot Username & Password) सिस्टम
+# 3. यूजर ऑथेंटिकेशन सिस्टम
 # =============================================================================
 USERS_DB_FILE = "users_db.json"
 
@@ -73,41 +70,178 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = ""
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "dashboard"
 
-# यदि यूजर लॉगिन नहीं है, तो आकर्षक लॉगिन स्क्रीन दिखाएं
+# अचूक CSS: डार्क थीम, टैब विजिबिलिटी और बटन विजिबिलिटी फिक्स
+st.markdown("""
+<style>
+    .stApp { background-color: #0c1d36; color: #ffffff; }
+    
+    .main-header {
+        background: linear-gradient(90deg, #102a45, #1b4f72);
+        padding: 16px;
+        border-radius: 10px;
+        text-align: center;
+        border: 2px solid #f4d03f;
+        margin-bottom: 20px;
+    }
+    
+    .profile-card {
+        background-color: #132743;
+        padding: 18px;
+        border-radius: 12px;
+        border: 1px solid #f39c12;
+        text-align: center;
+    }
+
+    .sun-box {
+        position: relative;
+        width: 260px;
+        height: 260px;
+        margin: 0 auto 5px auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .spinning-rays {
+        position: absolute;
+        animation: spinClockwise 12s linear infinite;
+        z-index: 1;
+    }
+
+    @keyframes spinClockwise {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .profile-center-img {
+        position: relative;
+        width: 130px;
+        height: 130px;
+        border-radius: 50%;
+        border: 3px solid #f39c12;
+        background-size: cover;
+        background-position: center 25%;
+        z-index: 2;
+        box-shadow: 0 0 16px rgba(0,0,0,0.8);
+    }
+
+    .scope-box {
+        background-color: #132743;
+        border: 1px solid #f4d03f;
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin-bottom: 20px;
+        font-size: 13.5px;
+        line-height: 1.6;
+    }
+
+    /* लॉगिन कार्ड और टैब फिक्स */
+    .login-card {
+        background-color: #132743;
+        padding: 25px;
+        border-radius: 12px;
+        border: 2px solid #f4d03f;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        max-width: 500px;
+        margin: 10px auto;
+    }
+    .login-title {
+        color: #f4d03f;
+        text-align: center;
+        font-size: 22px;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .login-sub {
+        color: #aed6f1;
+        text-align: center;
+        font-size: 13px;
+        margin-bottom: 15px;
+        font-style: italic;
+    }
+
+    /* सभी टैब के टेक्स्ट को स्पष्ट पीला/سफेद करना */
+    .stTabs [data-baseweb="tab"] {
+        color: #f4d03f !important;
+        font-weight: bold !important;
+        font-size: 15px !important;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #1f418d !important;
+        border-radius: 5px 5px 0 0 !important;
+    }
+
+    /* लेबल्स */
+    label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span {
+        color: #f4d03f !important;
+        font-size: 14.5px !important;
+        font-weight: bold !important;
+    }
+
+    /* इनपुट फील्ड्स */
+    input, select, textarea, [data-baseweb="select"], [data-baseweb="textarea"] {
+        background-color: #1c3b60 !important;
+        color: #ffffff !important;
+        font-weight: bold !important;
+        border: 1px solid #2e5b88 !important;
+        border-radius: 6px !important;
+    }
+
+    /* यूनिवर्सल बटन फिक्स ताकि टेक्स्ट हमेशा दिखे */
+    button, div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
+        background-color: #2980b9 !important;
+        color: #ffffff !important;
+        font-weight: bold !important;
+        border: 2px solid #3498db !important;
+        border-radius: 6px !important;
+        box-shadow: 0 4px 0 #1b4f72 !important;
+    }
+    button *, div.stButton > button *, div[data-testid="stFormSubmitButton"] > button * {
+        color: #ffffff !important;
+        font-weight: bold !important;
+    }
+
+    div[data-testid="stFormSubmitButton"] > button {
+        background-color: #27ae60 !important;
+        border-color: #2ecc71 !important;
+        box-shadow: 0 4px 0 #1e8449 !important;
+    }
+
+    div[data-testid="stDownloadButton"] > button {
+        background-color: #d35400 !important;
+        border: 2px solid #e67e22 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 6px 0 #a04000 !important;
+        width: 100% !important;
+        padding: 14px !important;
+        margin-top: 15px !important;
+    }
+    div[data-testid="stDownloadButton"] > button * {
+        color: #ffffff !important;
+        font-size: 17px !important;
+        font-weight: 800 !important;
+    }
+
+    .custom-table {
+        width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px;
+    }
+    .custom-table th {
+        background-color: #1b4f72; color: #ffffff; padding: 8px; border: 1px solid #2e5b88; text-align: center;
+    }
+    .custom-table td {
+        background-color: #0e2338; color: #ffffff; padding: 8px; border: 1px solid #2e5b88; text-align: center;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# =============================================================================
+# 4. लॉगिन स्क्रीन (यदि यूजर लॉगिन नहीं है)
+# =============================================================================
 if not st.session_state.logged_in:
     st.markdown("""
-    <style>
-        .stApp { background-color: #0c1d36; color: #ffffff; }
-        .login-card {
-            background-color: #132743;
-            padding: 25px;
-            border-radius: 12px;
-            border: 2px solid #f4d03f;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-            max-width: 500px;
-            margin: 10px auto;
-        }
-        .login-title {
-            color: #f4d03f;
-            text-align: center;
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .login-sub {
-            color: #aed6f1;
-            text-align: center;
-            font-size: 13px;
-            margin-bottom: 15px;
-            font-style: italic;
-        }
-        label, [data-testid="stWidgetLabel"] p {
-            color: #f4d03f !important;
-            font-weight: bold !important;
-        }
-    </style>
-    
     <div class="login-card">
         <div class="login-title">📜 राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर</div>
         <div class="login-sub">सुरक्षित मल्टी-यूजर प्रशासनिक एवं वित्तीय स्वचालन प्रणाली</div>
@@ -132,6 +266,7 @@ if not st.session_state.logged_in:
                 if login_user in users and users[login_user]["password"] == login_pass:
                     st.session_state.logged_in = True
                     st.session_state.username = login_user
+                    st.session_state.current_page = "dashboard"
                     st.success("लॉगिन सफल रहा!")
                     st.rerun()
                 else:
@@ -203,7 +338,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # =============================================================================
-# 4. डेटा फ़ाइल पाथ्स एवं टॉप-राइट लॉगआउट/प्रोफाइल बार
+# 5. लॉगिन के बाद मुख्य इंटरफेस और प्रोफाइल बार
 # =============================================================================
 current_user = st.session_state.get("username", "default_user")
 
@@ -220,7 +355,7 @@ with col_btn:
     if st.button("🚪 लॉगआउट", use_container_width=True, help="अपने अकाउंट से सुरक्षित बाहर निकलें"):
         st.session_state.logged_in = False
         st.session_state.username = ""
-        st.query_params.clear()
+        st.session_state.current_page = "dashboard"
         st.rerun()
 
 PL_DATA_FILE = os.path.join("output", f"saved_pl_data_{current_user}.json")
@@ -232,7 +367,7 @@ MASTER_SCHOOLS_FILE = "master_schools.json"
 MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
 
 # =============================================================================
-# 3. ग्लोबल डेटा डेफिनिशन
+# 6. ग्लोबल डेटा डेफिनिशन
 # =============================================================================
 DESIG_LIST = [
     "वरिष्ठ अध्यापक", "प्रधानाचार्य", "उप प्रधानाचार्य", "व्याख्याता", 
@@ -362,185 +497,17 @@ def generate_sun_rays_svg():
 
 rays_svg_html = generate_sun_rays_svg()
 
-# अचूक CSS: सभी प्रकार के बटन्स (फॉर्म, नॉर्मल, डिलीट, सेव, रीसेट) और रेडियो टेक्स्ट का रंग सही करना
-st.markdown("""
-<style>
-    .stApp { background-color: #0c1d36; color: #ffffff; }
-    
-    .main-header {
-        background: linear-gradient(90deg, #102a45, #1b4f72);
-        padding: 16px;
-        border-radius: 10px;
-        text-align: center;
-        border: 2px solid #f4d03f;
-        margin-bottom: 20px;
-    }
-    
-    .profile-card {
-        background-color: #132743;
-        padding: 18px;
-        border-radius: 12px;
-        border: 1px solid #f39c12;
-        text-align: center;
-    }
+# =============================================================================
+# 7. सुरक्षित नेविगेशन सिस्टम (बिना लिंक के स्टेट-आधारित स्विचिंग)
+# =============================================================================
+if "page" not in st.session_state:
+    st.session_state.page = "dashboard"
 
-    .sun-box {
-        position: relative;
-        width: 260px;
-        height: 260px;
-        margin: 0 auto 5px auto;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
+def go_to_page(p_name):
+    st.session_state.page = p_name
+    st.rerun()
 
-    .spinning-rays {
-        position: absolute;
-        animation: spinClockwise 12s linear infinite;
-        z-index: 1;
-    }
-
-    @keyframes spinClockwise {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .profile-center-img {
-        position: relative;
-        width: 130px;
-        height: 130px;
-        border-radius: 50%;
-        border: 3px solid #f39c12;
-        background-size: cover;
-        background-position: center 25%;
-        z-index: 2;
-        box-shadow: 0 0 16px rgba(0,0,0,0.8);
-    }
-
-    .scope-box {
-        background-color: #132743;
-        border: 1px solid #f4d03f;
-        border-radius: 8px;
-        padding: 14px 18px;
-        margin-bottom: 20px;
-        font-size: 13.5px;
-        line-height: 1.6;
-    }
-
-    /* सभी लेबल्स और रेडियो बटन्स के टेक्स्ट को स्पष्ट पीला/सफेद रखना */
-    label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span, .stRadio label p, div[data-baseweb="radio"] div {
-        color: #f4d03f !important;
-        font-size: 14.5px !important;
-        font-weight: bold !important;
-        opacity: 1 !important;
-    }
-
-    /* इनपुट, सेलेक्ट और टेक्स्ट एरिया */
-    input, select, textarea, [data-baseweb="select"], [data-baseweb="textarea"] {
-        background-color: #1c3b60 !important;
-        color: #ffffff !important;
-        font-weight: bold !important;
-        border: 1px solid #2e5b88 !important;
-        border-radius: 6px !important;
-    }
-
-    /* एक्सपेंडर */
-    [data-testid="stExpander"] {
-        background-color: #132743 !important;
-        border: 1px solid #f4d03f !important;
-        border-radius: 8px !important;
-    }
-    [data-testid="stExpander"] summary span {
-        color: #f4d03f !important;
-        font-weight: bold !important;
-    }
-    .stExpander textarea {
-        background-color: #0c1d36 !important;
-        color: #2ecc71 !important;
-        font-family: monospace !important;
-        font-size: 12.5px !important;
-    }
-
-    .menu-btn-pl {
-        display: block; width: 100%; background-color: #1f618d; color: #ffffff !important;
-        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
-        border-radius: 8px; border: 2px solid #2980b9; box-shadow: 0 5px 0 #154360; margin-bottom: 14px; text-align: left;
-    }
-    .menu-btn-pl:hover { background-color: #2980b9; }
-
-    .menu-btn-inc {
-        display: block; width: 100%; background-color: #27ae60; color: #ffffff !important;
-        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
-        border-radius: 8px; border: 2px solid #2ecc71; box-shadow: 0 5px 0 #1e8449; margin-bottom: 14px; text-align: left;
-    }
-    .menu-btn-inc:hover { background-color: #2ecc71; }
-
-    .menu-btn-san {
-        display: block; width: 100%; background-color: #8e44ad; color: #ffffff !important;
-        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
-        border-radius: 8px; border: 2px solid #9b59b6; box-shadow: 0 5px 0 #512e5f; margin-bottom: 14px; text-align: left;
-    }
-    .menu-btn-san:hover { background-color: #9b59b6; }
-
-    .menu-btn-rel {
-        display: block; width: 100%; background-color: #212f3d; color: #a6acaf !important;
-        text-decoration: none !important; padding: 13px 20px; font-size: 15px; border-radius: 8px;
-        border: 1px solid #34495e; box-shadow: 0 4px 0 #17202a; text-align: left;
-    }
-
-    /* ========================================================== */
-    /* यूनिवर्सल बटन कलर फिक्स: स्ट्रीमलिट के सभी बटन्स को जबरन रंगीन व पाठ्य बनाना */
-    /* ========================================================== */
-    button, div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
-        background-color: #2980b9 !important;
-        color: #ffffff !important;
-        font-weight: bold !important;
-        border: 2px solid #3498db !important;
-        border-radius: 6px !important;
-        box-shadow: 0 4px 0 #1b4f72 !important;
-    }
-    button *, div.stButton > button *, div[data-testid="stFormSubmitButton"] > button * {
-        color: #ffffff !important;
-        font-weight: bold !important;
-    }
-
-    /* फॉर्म सबमिट बटन (हरा रंग) */
-    div[data-testid="stFormSubmitButton"] > button {
-        background-color: #27ae60 !important;
-        border-color: #2ecc71 !important;
-        box-shadow: 0 4px 0 #1e8449 !important;
-    }
-
-    /* डाउनलोड / आदेश जनरेट बटन (नारंगी रंग) */
-    div[data-testid="stDownloadButton"] > button {
-        background-color: #d35400 !important;
-        border: 2px solid #e67e22 !important;
-        border-radius: 8px !important;
-        box-shadow: 0 6px 0 #a04000 !important;
-        width: 100% !important;
-        padding: 14px !important;
-        margin-top: 15px !important;
-    }
-    div[data-testid="stDownloadButton"] > button * {
-        color: #ffffff !important;
-        font-size: 17px !important;
-        font-weight: 800 !important;
-    }
-
-    .custom-table {
-        width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px;
-    }
-    .custom-table th {
-        background-color: #1b4f72; color: #ffffff; padding: 8px; border: 1px solid #2e5b88; text-align: center;
-    }
-    .custom-table td {
-        background-color: #0e2338; color: #ffffff; padding: 8px; border: 1px solid #2e5b88; text-align: center;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-params = st.query_params
-active_page = params.get("page", "dashboard")
+active_page = st.session_state.page
 
 # =============================================================================
 # पृष्ठ 1: मुख्य डैशबोर्ड
@@ -587,17 +554,17 @@ if active_page == "dashboard":
 
         st.markdown("<h4 style='color:#5dade2; margin-bottom: 14px;'>कार्यालय आदेश मॉड्यूल चयन करें:</h4>", unsafe_allow_html=True)
 
+        if st.button("1. उपार्जित अवकाश समर्पण (PL Surrender) आदेश जनरेटर ▶", use_container_width=True):
+            go_to_page("pl_surrender")
+        
+        if st.button("2. वार्षिक सामयिक वेतन वृद्धि (Annual Increment) आदेश जनरेटर ▶", use_container_width=True):
+            go_to_page("increment_order")
+            
+        if st.button("3. संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order) जनरेटर ▶", use_container_width=True):
+            go_to_page("sanchalan_portal")
+            
         st.markdown("""
-        <a href="/?page=pl_surrender" target="_self" class="menu-btn-pl">
-            1. उपार्जित अवकाश समर्पण (PL Surrender) आदेश जनरेटर ▶
-        </a>
-        <a href="/?page=increment_order" target="_self" class="menu-btn-inc">
-            2. वार्षिक सामयिक वेतन वृद्धि (Annual Increment) आदेश जनरेटर ▶
-        </a>
-        <a href="/?page=sanchalan_portal" target="_self" class="menu-btn-san">
-            3. संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order) जनरेटर ▶
-        </a>
-        <div class="menu-btn-rel">
+        <div style="background-color: #212f3d; color: #a6acaf; padding: 15px 20px; font-size: 15px; border-radius: 8px; border: 1px solid #34495e; margin-top: 14px;">
             4. कार्यमुक्ति / कार्यग्रहण (Relieving / Joining) आदेश [शीघ्र उपलब्ध]
         </div>
         """, unsafe_allow_html=True)
@@ -606,7 +573,8 @@ if active_page == "dashboard":
 # पृष्ठ 2: उपार्जित अवकाश समर्पण (PL Surrender) विंडो
 # =============================================================================
 elif active_page == "pl_surrender":
-    st.markdown('<a href="/?page=dashboard" target="_self" style="display: inline-block; background-color: #c0392b; color: #ffffff !important; text-decoration: none !important; padding: 8px 18px; font-size: 14px; font-weight: bold; border-radius: 6px; border: 1px solid #e74c3c; margin-bottom: 15px;">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
+    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ"):
+        go_to_page("dashboard")
 
     if "pl_bundle_loaded" not in st.session_state:
         pl_bundle = load_json_data(PL_DATA_FILE)
@@ -805,7 +773,8 @@ elif active_page == "pl_surrender":
 # पृष्ठ 3: सामयिक वार्षिक वेतन वृद्धि (Annual Increment) विंडो
 # =============================================================================
 elif active_page == "increment_order":
-    st.markdown('<a href="/?page=dashboard" target="_self" style="display: inline-block; background-color: #c0392b; color: #ffffff !important; text-decoration: none !important; padding: 8px 18px; font-size: 14px; font-weight: bold; border-radius: 6px; border: 1px solid #e74c3c; margin-bottom: 15px;">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
+    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ"):
+        go_to_page("dashboard")
 
     if "inc_bundle_loaded" not in st.session_state:
         inc_bundle = load_json_data(INC_DATA_FILE)
@@ -1019,7 +988,8 @@ elif active_page == "increment_order":
 # पृष्ठ 4: संचालन पोर्टल भुगतान स्वीकृति आदेश (Sanchalan Portal Sanction) विंडो
 # =============================================================================
 elif active_page == "sanchalan_portal":
-    st.markdown('<a href="/?page=dashboard" target="_self" style="display: inline-block; background-color: #c0392b; color: #ffffff !important; text-decoration: none !important; padding: 8px 18px; font-size: 14px; font-weight: bold; border-radius: 6px; border: 1px solid #e74c3c; margin-bottom: 15px;">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
+    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ"):
+        go_to_page("dashboard")
 
     if "san_bundle_loaded" not in st.session_state:
         san_bundle = load_json_data(SAN_DATA_FILE, {"office_data": {}, "items": []})
@@ -1072,7 +1042,7 @@ elif active_page == "sanchalan_portal":
     </div>
     """, unsafe_allow_html=True)
 
-    # मास्टर डेटा प्रबंधन एक्सपेंडर (पूर्णतः दृश्यमान टेक्स्ट और बटन्स के साथ)
+    # मास्टर डेटा प्रबंधन एक्सपेंडर
     with st.expander("⚙️ मास्टर डेटा प्रबंधन (स्कूल, वेंडर और 29 एम्प्लॉयीज बेनिफिशियरी देखें/बदले)"):
         st.markdown("<span style='color: #f4d03f; font-weight: bold;'>आप यहाँ अपनी आवश्यकतानुसार मास्टर डेटा JSON प्रारूप में अपडेट कर सकते हैं:</span>", unsafe_allow_html=True)
         
