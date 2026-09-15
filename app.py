@@ -13,7 +13,42 @@ st.set_page_config(
 )
 
 # =============================================================================
-# यूजर ऑथेंटिकेशन (Login, Sign-up, Forgot Username & Password) सिस्टम
+# 2. बेसिक JSON लोड/सेव फंक्शन्स
+# =============================================================================
+def load_json_data(file_path, default_val=None):
+    if default_val is None:
+        default_val = {"office_data": {}, "employees": []}
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return default_val
+    return default_val
+
+def save_json_data(file_path, data):
+    os.makedirs("output", exist_ok=True)
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_json_file(filename, default_val):
+    if os.path.exists(filename):
+        try:
+            with open(filename, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return default_val
+    return default_val
+
+def save_json_file(filename, data):
+    try:
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
+
+# =============================================================================
+# 3. यूजर ऑथेंटिकेशन (Login, Sign-up, Forgot Username & Password) सिस्टम
 # =============================================================================
 USERS_DB_FILE = "users_db.json"
 
@@ -76,7 +111,6 @@ if not st.session_state.logged_in:
     with col_center:
         st.markdown('<div style="background-color: #132743; padding: 20px; border-radius: 10px; border: 1px solid #2980b9;">', unsafe_allow_html=True)
         
-        # चार टैब: लॉगिन, नया अकाउंट, पासवर्ड रीसेट, यूजरनेम रिकवरी
         tab_login, tab_signup, tab_pass, tab_user = st.tabs(["🔑 लॉगिन", "📝 रजिस्टर", "🔄 पासवर्ड रीसेट", "❓ यूजरनेम भूल गए?"])
         
         with tab_login:
@@ -161,151 +195,24 @@ if not st.session_state.logged_in:
     st.stop()
 
 # =============================================================================
-# 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक (लॉगिन के बाद सक्रिय - यूजर प्रोफाइल बार)
+# 4. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक (लॉगिन के बाद सक्रिय - टॉप राइट लॉगआउट बटन)
 # =============================================================================
 current_user = st.session_state.get("username", "default_user")
 
-# स्क्रीन के ऊपर यूजर प्रोफाइल और लॉगआउट बार दिखाना
-st.markdown(f"""
-<div style="background-color: #1b4f72; padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #f4d03f;">
-    <span style="color: #f4d03f; font-weight: bold; font-size: 15px;">👤 स्वागत है, {current_user.upper()} जी! (सक्रिय यूजर प्रोफाइल)</span>
-</div>
-""", unsafe_allow_html=True)
+col_welcome, col_btn = st.columns([3.2, 0.8])
 
-# साइडबार में लॉगआउट बटन देना ताकि यूजर आसानी से स्विच कर सके
-if st.sidebar.button("🚪 लॉगआउट (Logout)", help="अपने अकाउंट से बाहर निकलें"):
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.rerun()
-
-PL_DATA_FILE = os.path.join("output", f"saved_pl_data_{current_user}.json")
-INC_DATA_FILE = os.path.join("output", f"saved_increment_data_{current_user}.json")
-SAN_DATA_FILE = os.path.join("output", f"saved_sanchalan_data_{current_user}.json")
-
-MASTER_VENDORS_FILE = "master_vendors.json"
-MASTER_SCHOOLS_FILE = "master_schools.json"
-MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
-
-# =============================================================================
-# 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक (यूजर-वाइज आइसोलेशन)
-# =============================================================================
-current_user = st.session_state.get("username", "default_user")
-
-PL_DATA_FILE = os.path.join("output", f"saved_pl_data_{current_user}.json")
-INC_DATA_FILE = os.path.join("output", f"saved_increment_data_{current_user}.json")
-SAN_DATA_FILE = os.path.join("output", f"saved_sanchalan_data_{current_user}.json")
-
-MASTER_VENDORS_FILE = "master_vendors.json"
-MASTER_SCHOOLS_FILE = "master_schools.json"
-MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
-if not st.session_state.logged_in:
-    # सॉफ्टवेयर की मुख्य थीम वाला आकर्षक हेडर और CSS
-    st.markdown("""
-    <style>
-        .login-card {
-            background-color: #132743;
-            padding: 30px;
-            border-radius: 12px;
-            border: 2px solid #f4d03f;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-            max-width: 500px;
-            margin: 20px auto;
-        }
-        .login-title {
-            color: #f4d03f;
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .login-sub {
-            color: #aed6f1;
-            text-align: center;
-            font-size: 13.5px;
-            margin-bottom: 20px;
-            font-style: italic;
-        }
-    </style>
-    
-    <div class="login-card">
-        <div class="login-title">📜 राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर</div>
-        <div class="login-sub">सुरक्षित मल्टी-यूजर प्रशासनिक एवं वित्तीय स्वचालन प्रणाली</div>
+with col_welcome:
+    st.markdown(f"""
+    <div style="background-color: #1b4f72; padding: 11px 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #f4d03f;">
+        <span style="color: #f4d03f; font-weight: bold; font-size: 15px;">👤 स्वागत है, {current_user.upper()} जी! (सक्रिय यूजर प्रोफाइल)</span>
     </div>
     """, unsafe_allow_html=True)
 
-    _, col_center, _ = st.columns([1, 2.5, 1])
-    
-    with col_center:
-        st.markdown('<div style="background-color: #132743; padding: 25px; border-radius: 10px; border: 1px solid #2980b9;">', unsafe_allow_html=True)
-        
-        # अब यहाँ तीन टैब होंगे: लॉगिन, साइन-अप और पासवर्ड रिकवरी
-        tab_login, tab_signup, tab_forgot = st.tabs(["🔑 लॉगिन", "📝 नया अकाउंट", "🔄 पासवर्ड रीसेट"])
-        
-        with tab_login:
-            st.markdown("<p style='color: #2ecc71; font-weight: bold; margin-top: 10px;'>अपने क्रेडेंशियल्स दर्ज करें:</p>", unsafe_allow_html=True)
-            login_user = st.text_input("यूजरनेम (Username)", key="login_u")
-            login_pass = st.text_input("पासवर्ड (Password)", type="password", key="login_p")
-            
-            if st.button("🚀 सुरक्षित लॉगिन करें"):
-                db = load_users()
-                users = db.get("users", {})
-                if login_user in users and users[login_user]["password"] == login_pass:
-                    st.session_state.logged_in = True
-                    st.session_state.username = login_user
-                    st.success("लॉगिन सफल रहा!")
-                    st.rerun()
-                else:
-                    st.error("गलत यूजरनेम या पासवर्ड!")
-                    
-        with tab_signup:
-            st.markdown("<p style='color: #f39c12; font-weight: bold; margin-top: 10px;'>नया अकाउंट बनाएं (सुरक्षा प्रश्न सहित):</p>", unsafe_allow_html=True)
-            new_user = st.text_input("नया यूजरनेम बनाएं", key="signup_u")
-            new_pass = st.text_input("नया पासवर्ड बनाएं", type="password", key="signup_p")
-            sec_ans = st.text_input("सुरक्षा प्रश्न: आपका गृह जिला (Home District) कौन सा है?", key="signup_sec", help="पासवर्ड भूलने पर रिकवरी के काम आएगा")
-            
-            if st.button("✨ रजिस्टर करें"):
-                db = load_users()
-                users = db.get("users", {})
-                if not new_user.strip() or not new_pass.strip() or not sec_ans.strip():
-                    st.error("सभी फील्ड भरना अनिवार्य है!")
-                elif new_user in users:
-                    st.error("यह यूजरनेम पहले से मौजूद है, दूसरा चुनें!")
-                else:
-                    users[new_user] = {
-                        "password": new_pass,
-                        "security_answer": sec_ans.strip().lower()
-                    }
-                    db["users"] = users
-                    save_users(db)
-                    st.success("अकाउंट बन गया है! अब 'लॉगिन' टैब में जाकर प्रवेश करें।")
-
-        with tab_forgot:
-            st.markdown("<p style='color: #e74c3c; font-weight: bold; margin-top: 10px;'>पासवर्ड रीसेट करें:</p>", unsafe_allow_html=True)
-            f_user = st.text_input("अपना यूजरनेम दर्ज करें", key="f_user")
-            f_ans = st.text_input("अपना गृह जिला (Home District) दर्ज करें", key="f_ans", help="जो रजिस्टर करते समय भरा था")
-            new_p1 = st.text_input("नया पासवर्ड दर्ज करें", type="password", key="f_p1")
-            new_p2 = st.text_input("नया पासवर्ड दोबारा दर्ज करें", type="password", key="f_p2")
-            
-            if st.button("🔄 पासवर्ड अपडेट करें"):
-                db = load_users()
-                users = db.get("users", {})
-                if f_user not in users:
-                    st.error("यह यूजरनेम मौजूद नहीं है!")
-                elif users[f_user].get("security_answer", "") != f_ans.strip().lower():
-                    st.error("सुरक्षा उत्तर गलत है!")
-                elif not new_p1.strip() or new_p1 != new_p2:
-                    st.error("नया पासवर्ड खाली नहीं हो सकता या दोनों मैच नहीं हो रहे!")
-                else:
-                    users[f_user]["password"] = new_p1
-                    db["users"] = users
-                    save_users(db)
-                    st.success("पासवर्ड सफलतापूर्वक बदल गया है! अब 'लॉगिन' टैब से लॉगिन करें।")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-                
-    st.stop()
-# 3. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक (यूजर-वाइज आइसोलेशन के साथ)
-current_user = st.session_state.get("username", "default_user")
+with col_btn:
+    if st.button("🚪 लॉगआउट", use_container_width=True, help="अपने अकाउंट से सुरक्षित बाहर निकलें"):
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.rerun()
 
 PL_DATA_FILE = os.path.join("output", f"saved_pl_data_{current_user}.json")
 INC_DATA_FILE = os.path.join("output", f"saved_increment_data_{current_user}.json")
@@ -313,8 +220,7 @@ SAN_DATA_FILE = os.path.join("output", f"saved_sanchalan_data_{current_user}.jso
 
 MASTER_VENDORS_FILE = "master_vendors.json"
 MASTER_SCHOOLS_FILE = "master_schools.json"
-MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
-# 3. ग्लोबल डेटा डेफिनिशन
+MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"# 3. ग्लोबल डेटा डेफिनिशन
 DESIG_LIST = [
     "वरिष्ठ अध्यापक", "प्रधानाचार्य", "उप प्रधानाचार्य", "व्याख्याता", 
     "अध्यापक लेवल 2", "अध्यापक लेवल 1", "शारीरिक शिक्षक", "पुस्तकालय अध्यक्ष", 
