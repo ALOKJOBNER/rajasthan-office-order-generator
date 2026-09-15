@@ -77,7 +77,9 @@ def go_to_page(p_name):
     st.session_state.page = p_name
     st.rerun()
 
-# उन्नत और अचूक CSS: रंग, टेक्स्ट विजिबिलिटी और लेआउट फिक्स
+# =============================================================================
+# 4. उन्नत CSS (केवल लेआउट, बटन्स और फील्डसेट के लिए - ड्रॉपडाउन सुरक्षित हैं)
+# =============================================================================
 st.markdown("""
 <style>
     .stApp { background-color: #0c1d36; color: #ffffff; }
@@ -132,16 +134,6 @@ st.markdown("""
         box-shadow: 0 0 16px rgba(0,0,0,0.8);
     }
 
-    .scope-box {
-        background-color: #132743;
-        border: 1px solid #f4d03f;
-        border-radius: 8px;
-        padding: 14px 18px;
-        margin-bottom: 20px;
-        font-size: 13.5px;
-        line-height: 1.6;
-    }
-
     /* लॉगिन कार्ड */
     .login-card {
         background-color: #132743;
@@ -152,86 +144,52 @@ st.markdown("""
         max-width: 520px;
         margin: 10px auto;
     }
-    .login-title {
-        color: #f4d03f;
-        text-align: center;
-        font-size: 22px;
-        font-weight: bold;
-        margin-bottom: 5px;
-    }
-    .login-sub {
-        color: #aed6f1;
-        text-align: center;
-        font-size: 13px;
-        margin-bottom: 15px;
-        font-style: italic;
-    }
 
-    /* रेडियो नेविगेशन (टैब विकल्प) के टेक्स्ट को हमेशा चमकीला पीला रखना */
+    /* रेडियो नेविगेशन (लॉगिन टैब विकल्प) के टेक्स्ट को हमेशा चमकीला पीला रखना */
     .stRadio label p {
         color: #f4d03f !important;
+        font-size: 16px !important;
+        font-weight: bold !important;
+    }
+
+    /* विशिष्ट बटनों के रंग सेट करने के लिए एडवांस्ड CSS मार्कर ट्रिक */
+    /* 1. PL Surrender (ऑरेंज) */
+    div[data-testid="stVerticalBlock"] div:has(span.marker-pl) + div[data-testid="stButton"] button {
+        background-color: #d35400 !important; 
+        border: 2px solid #e67e22 !important; 
+    }
+    /* 2. Increment (ग्रीन) */
+    div[data-testid="stVerticalBlock"] div:has(span.marker-inc) + div[data-testid="stButton"] button {
+        background-color: #27ae60 !important; 
+        border: 2px solid #2ecc71 !important; 
+    }
+    /* 3. Sanchalan (वॉयलेट/बैंगनी) */
+    div[data-testid="stVerticalBlock"] div:has(span.marker-san) + div[data-testid="stButton"] button {
+        background-color: #8e44ad !important; 
+        border: 2px solid #9b59b6 !important; 
+    }
+    /* 4. मुख्य डैशबोर्ड पर वापस जाएँ (रेड) */
+    div[data-testid="stVerticalBlock"] div:has(span.marker-back) + div[data-testid="stButton"] button {
+        background-color: #c0392b !important; 
+        border: 2px solid #e74c3c !important; 
+        margin-bottom: 15px;
+    }
+
+    /* सभी बटनों के टेक्स्ट को स्पष्ट और बोल्ड रखना */
+    div[data-testid="stButton"] button p {
+        color: #ffffff !important;
+        font-weight: bold !important;
         font-size: 15px !important;
-        font-weight: bold !important;
     }
 
-    /* लेबल्स */
-    label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span {
-        color: #f4d03f !important;
-        font-size: 14.5px !important;
-        font-weight: bold !important;
-    }
-
-    /* इनपुट फील्ड्स */
-    input, select, textarea, [data-baseweb="select"], [data-baseweb="textarea"] {
-        background-color: #1c3b60 !important;
-        color: #ffffff !important;
-        font-weight: bold !important;
-        border: 1px solid #2e5b88 !important;
-        border-radius: 6px !important;
-    }
-
-    /* मॉड्यूल 1 बटन (नारंगी - PL Surrender) */
-    div.stButton > button[key*="btn_mod_pl"] {
-        background-color: #d35400 !important;
-        border: 2px solid #e67e22 !important;
-        box-shadow: 0 4px 0 #a04000 !important;
-    }
-    
-    /* मॉड्यूल 2 बटन (हरा - Increment) */
-    div.stButton > button[key*="btn_mod_inc"] {
-        background-color: #27ae60 !important;
-        border: 2px solid #2ecc71 !important;
-        box-shadow: 0 4px 0 #1e8449 !important;
-    }
-
-    /* मॉड्यूल 3 बटन (बैंगनी/वॉयलेट - Sanchalan Portal) */
-    div.stButton > button[key*="btn_mod_san"] {
-        background-color: #8e44ad !important;
-        border: 2px solid #9b59b6 !important;
-        box-shadow: 0 4px 0 #512e5f !important;
-    }
-
-    /* मुख्य डैशबोर्ड पर वापस जाने का बटन (लाल) */
-    div.stButton > button[key*="btn_back_dash"] {
-        background-color: #c0392b !important;
-        border: 2px solid #e74c3c !important;
-        box-shadow: 0 4px 0 #922b21 !important;
-    }
-
-    /* यूनिवर्सल बटन डिफॉल्ट */
-    button, div.stButton > button {
-        background-color: #2980b9 !important;
-        color: #ffffff !important;
-        font-weight: bold !important;
-        border: 2px solid #3498db !important;
-        border-radius: 6px !important;
-        box-shadow: 0 4px 0 #1b4f72 !important;
+    /* डाउनलोड बटन की विशेष डिजाइन */
+    div[data-testid="stDownloadButton"] > button {
+        background-color: #1f618d !important;
+        border: 2px solid #2980b9 !important;
+        border-radius: 8px !important;
         width: 100% !important;
         padding: 12px !important;
-    }
-    button *, div.stButton > button * {
-        color: #ffffff !important;
-        font-weight: bold !important;
+        margin-top: 15px !important;
     }
 
     .custom-table {
@@ -247,13 +205,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# 4. लॉगिन स्क्रीन (यदि यूजर लॉगिन नहीं है)
+# 5. लॉगिन स्क्रीन (यदि यूजर लॉगिन नहीं है)
 # =============================================================================
 if not st.session_state.logged_in:
     st.markdown("""
     <div class="login-card">
-        <div class="login-title">📜 राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर</div>
-        <div class="login-sub">सुरक्षित मल्टी-यूजर प्रशासनिक एवं वित्तीय स्वचालन प्रणाली</div>
+        <div style="color: #f4d03f; text-align: center; font-size: 22px; font-weight: bold; margin-bottom: 5px;">📜 राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर</div>
+        <div style="color: #aed6f1; text-align: center; font-size: 13px; margin-bottom: 15px; font-style: italic;">सुरक्षित मल्टी-यूजर प्रशासनिक एवं वित्तीय स्वचालन प्रणाली</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -262,7 +220,7 @@ if not st.session_state.logged_in:
     with col_center:
         st.markdown('<div style="background-color: #132743; padding: 20px; border-radius: 10px; border: 1px solid #2980b9;">', unsafe_allow_html=True)
         
-        # st.tabs की खामी को दूर करने के लिए st.radio का उपयोग (सभी विकल्प हमेशा स्पष्ट दिखेंगे)
+        # st.tabs की जगह st.radio का उपयोग ताकि सारे विकल्प स्पष्ट दिखें और कोई फालतू बॉक्स न आए
         auth_mode = st.radio(
             "मोड चुनें:",
             ["🔑 लॉगिन", "📝 रजिस्टर", "🔄 पासवर्ड रीसेट", "❓ यूजरनेम भूल गए?"],
@@ -274,10 +232,10 @@ if not st.session_state.logged_in:
 
         if auth_mode == "🔑 लॉगिन":
             st.markdown("<p style='color: #2ecc71; font-weight: bold; margin-top: 8px;'>अपने क्रेडेंशियल्स दर्ज करें:</p>", unsafe_allow_html=True)
-            login_user = st.text_input("यूजरनेम (Username)", key="login_u")
-            login_pass = st.text_input("पासवर्ड (Password)", type="password", key="login_p")
+            login_user = st.text_input("यूजरनेम (Username)")
+            login_pass = st.text_input("पासवर्ड (Password)", type="password")
             
-            if st.button("🚀 सुरक्षित लॉगिन करें", key="btn_login_act"):
+            if st.button("🚀 सुरक्षित लॉगिन करें", type="primary"):
                 db = load_users()
                 users = db.get("users", {})
                 if login_user in users and users[login_user]["password"] == login_pass:
@@ -291,11 +249,11 @@ if not st.session_state.logged_in:
                     
         elif auth_mode == "📝 रजिस्टर":
             st.markdown("<p style='color: #f39c12; font-weight: bold; margin-top: 8px;'>नया अकाउंट बनाएं:</p>", unsafe_allow_html=True)
-            new_user = st.text_input("नया यूजरनेम बनाएं", key="signup_u")
-            new_pass = st.text_input("नया पासवर्ड बनाएं", type="password", key="signup_p")
-            sec_ans = st.text_input("सुरक्षा प्रश्न: आपका गृह जिला कौन सा है?", key="signup_sec", help="यूजरनेम या पासवर्ड रिकवरी के लिए")
+            new_user = st.text_input("नया यूजरनेम बनाएं")
+            new_pass = st.text_input("नया पासवर्ड बनाएं", type="password")
+            sec_ans = st.text_input("सुरक्षा प्रश्न: आपका गृह जिला कौन सा है?", help="यूजरनेम या पासवर्ड रिकवरी के लिए")
             
-            if st.button("✨ रजिस्टर करें", key="btn_reg_act"):
+            if st.button("✨ रजिस्टर करें", type="primary"):
                 db = load_users()
                 users = db.get("users", {})
                 if not new_user.strip() or not new_pass.strip() or not sec_ans.strip():
@@ -309,20 +267,16 @@ if not st.session_state.logged_in:
                     }
                     db["users"] = users
                     save_users(db)
-                    st.markdown("""
-                    <div style="background-color: #1e8449; color: #ffffff; padding: 15px; border-radius: 8px; border: 2px solid #2ecc71; text-align: center; font-weight: bold; font-size: 16px; margin-top: 15px;">
-                        🎉 बधाई हो! अकाउंट सफलतापूर्वक बन गया है!<br>अब ऊपर '🔑 लॉगिन' मोड चुनकर प्रवेश करें।
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.success("🎉 बधाई हो! अकाउंट सफलतापूर्वक बन गया है! अब ऊपर '🔑 लॉगिन' मोड चुनकर प्रवेश करें।")
 
         elif auth_mode == "🔄 पासवर्ड रीसेट":
             st.markdown("<p style='color: #e74c3c; font-weight: bold; margin-top: 8px;'>पासवर्ड रीसेट करें:</p>", unsafe_allow_html=True)
-            f_user = st.text_input("यूजरनेम दर्ज करें", key="f_user")
-            f_ans = st.text_input("गृह जिला (Security Answer)", key="f_ans")
-            new_p1 = st.text_input("नया पासवर्ड", type="password", key="f_p1")
-            new_p2 = st.text_input("नया पासवर्ड पुनश्च", type="password", key="f_p2")
+            f_user = st.text_input("यूजरनेम दर्ज करें")
+            f_ans = st.text_input("गृह जिला (Security Answer)")
+            new_p1 = st.text_input("नया पासवर्ड", type="password")
+            new_p2 = st.text_input("नया पासवर्ड पुनश्च", type="password")
             
-            if st.button("🔄 पासवर्ड अपडेट करें", key="btn_pass_act"):
+            if st.button("🔄 पासवर्ड अपडेट करें", type="primary"):
                 db = load_users()
                 users = db.get("users", {})
                 if f_user not in users:
@@ -335,17 +289,13 @@ if not st.session_state.logged_in:
                     users[f_user]["password"] = new_p1
                     db["users"] = users
                     save_users(db)
-                    st.markdown("""
-                    <div style="background-color: #d35400; color: #ffffff; padding: 15px; border-radius: 8px; border: 2px solid #e67e22; text-align: center; font-weight: bold; font-size: 16px; margin-top: 15px;">
-                        🔄 पासवर्ड सफलतापूर्वक बदल गया है! अब लॉगिन करें।
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.success("🔄 पासवर्ड सफलतापूर्वक बदल गया है! अब लॉगिन करें।")
 
         elif auth_mode == "❓ यूजरनेम भूल गए?":
             st.markdown("<p style='color: #3498db; font-weight: bold; margin-top: 8px;'>अपना भूला हुआ यूजरनेम पता करें:</p>", unsafe_allow_html=True)
-            f_sec_ans = st.text_input("रजिस्टर करते वक्त भरा गया 'गृह जिला'", key="find_sec_ans")
+            f_sec_ans = st.text_input("रजिस्टर करते वक्त भरा गया 'गृह जिला'")
             
-            if st.button("🔍 यूजरनेम खोजें", key="btn_user_act"):
+            if st.button("🔍 यूजरनेम खोजें", type="primary"):
                 db = load_users()
                 users = db.get("users", {})
                 found_uname = None
@@ -354,11 +304,7 @@ if not st.session_state.logged_in:
                         found_uname = uname
                         break
                 if found_uname:
-                    st.markdown(f"""
-                    <div style="background-color: #8e44ad; color: #ffffff; padding: 15px; border-radius: 8px; border: 2px solid #9b59b6; text-align: center; font-weight: bold; font-size: 16px; margin-top: 15px;">
-                        🔍 आपका भूला हुआ यूजरनेम है: <span style="color: #f4d03f; font-size: 18px;">{found_uname}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.success(f"🔍 आपका भूला हुआ यूजरनेम है: {found_uname}")
                 else:
                     st.error("⚠️ इस सुरक्षा उत्तर से कोई यूजरनेम नहीं मिला!")
         
@@ -367,7 +313,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # =============================================================================
-# 5. लॉगिन के बाद मुख्य इंटरफेस और प्रोफाइल बार
+# 6. लॉगिन के बाद मुख्य इंटरफेस और प्रोफाइल बार
 # =============================================================================
 current_user = st.session_state.get("username", "default_user")
 
@@ -381,7 +327,9 @@ with col_welcome:
     """, unsafe_allow_html=True)
 
 with col_btn:
-    if st.button("🚪 लॉगआउट", key="btn_logout", use_container_width=True, help="अपने अकाउंट से सुरक्षित बाहर निकलें"):
+    # लॉगआउट बटन पर लाल रंग का मार्कर
+    st.markdown('<span class="marker-back"></span>', unsafe_allow_html=True)
+    if st.button("🚪 लॉगआउट", use_container_width=True):
         st.session_state.logged_in = False
         st.session_state.username = ""
         st.session_state.page = "dashboard"
@@ -396,7 +344,7 @@ MASTER_SCHOOLS_FILE = "master_schools.json"
 MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
 
 # =============================================================================
-# 6. ग्लोबल डेटा डेफिनिशन
+# 7. ग्लोबल डेटा डेफिनिशन
 # =============================================================================
 DESIG_LIST = [
     "वरिष्ठ अध्यापक", "प्रधानाचार्य", "उप प्रधानाचार्य", "व्याख्याता", 
@@ -563,41 +511,56 @@ if active_page == "dashboard":
         """, unsafe_allow_html=True)
 
     with col_right:
+        # पुरानी थीम वाला खूबसूरत Fieldset और Legend डिज़ाइन
         st.markdown("""
-        <div class="scope-box">
-            <span style="color: #f4d03f; font-weight: bold; font-size: 15px;">सॉफ्टवेयर के कार्य एवं भावी विस्तार योजना:</span><br>
-            <span style="color: #2ecc71;">✔ वर्तमान क्षमताएं:</span> उपार्जित अवकाश (PL Surrender) की सटीक नियमानुसार ऑटो-कैलकुलेशन, वार्षिक सामयिक वेतन वृद्धि (Annual Increment - जनवरी एवं जुलाई चक्र) आदेश 7th पे-मैट्रिक्स स्वतः गणना, संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Payment Sanction Order), मल्टीपल कार्मिक/वेंडर प्रविष्टि, लैंडस्केप व पोर्ट्रेट सटीक बॉर्डर प्रिंट आदेश.<br>
-            <span style="color: #f39c12;">🚀 भविष्य में संभावित कार्य:</span> कार्यमुक्ति (Relieving) व कार्यग्रहण (Joining) आदेश, बाल देखरेख अवकाश (CCL) स्वीकृति, स्थायीकरण (Confirmation) आदेश तथा समस्त वित्तीय व प्रशासनिक स्वीकृतियों का केंद्रीकृत स्वचालन।
-        </div>
+        <fieldset style="border: 1px solid #85c1e9; border-radius: 8px; padding: 15px; margin-bottom: 25px; background-color: #132743;">
+            <legend style="color: #f4d03f; font-weight: bold; font-size: 16px; padding: 0 10px;">सॉफ्टवेयर के कार्य एवं भावी विस्तार योजना</legend>
+            <div style="font-size: 13.5px; line-height: 1.6;">
+                <span style="color: #2ecc71;">✔ वर्तमान क्षमताएं:</span> उपार्जित अवकाश (PL Surrender) की सटीक नियमानुसार ऑटो-कैलकुलेशन, वार्षिक सामयिक वेतन वृद्धि (Annual Increment - जनवरी एवं जुलाई चक्र) आदेश 7th पे-मैट्रिक्स स्वतः गणना, संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Payment Sanction Order), मल्टीपल कार्मिक/वेंडर प्रविष्टि, लैंडस्केप व पोर्ट्रेट सटीक बॉर्डर प्रिंट आदेश.<br><br>
+                <span style="color: #f39c12;">🚀 भविष्य में संभावित कार्य:</span> कार्यमुक्ति (Relieving) व कार्यग्रहण (Joining) आदेश, बाल देखरेख अवकाश (CCL) स्वीकृति, स्थायीकरण (Confirmation) आदेश तथा समस्त वित्तीय व प्रशासनिक स्वीकृतियों का केंद्रीकृत स्वचालन।
+            </div>
+        </fieldset>
+        
+        <fieldset style="border: 1px solid #85c1e9; border-radius: 8px; padding: 20px 15px 10px 15px; background-color: #132743;">
+            <legend style="color: #f4d03f; font-weight: bold; font-size: 16px; padding: 0 10px;">कार्यालय आदेश मॉड्यूल चयन करें</legend>
         """, unsafe_allow_html=True)
 
-        st.markdown("<h4 style='color:#5dade2; margin-bottom: 14px;'>कार्यालय आदेश मॉड्यूल चयन करें:</h4>", unsafe_allow_html=True)
-
-        # मॉड्यूल 1 बटन (नारंगी - Orange)
-        if st.button("1. उपार्जित अवकाश समर्पण (PL Surrender) आदेश जनरेटर ▶", key="btn_mod_pl", use_container_width=True):
+        # मॉड्यूल 1 बटन (नारंगी मार्कर)
+        st.markdown('<span class="marker-pl"></span>', unsafe_allow_html=True)
+        if st.button("1. उपार्जित अवकाश समर्पण (PL Surrender) आदेश जनरेटर ▶", use_container_width=True):
             go_to_page("pl_surrender")
         
-        # मॉड्यूल 2 बटन (हरा - Green)
-        if st.button("2. वार्षिक सामयिक वेतन वृद्धि (Annual Increment) आदेश जनरेटर ▶", key="btn_mod_inc", use_container_width=True):
+        # मॉड्यूल 2 बटन (हरा मार्कर)
+        st.markdown('<span class="marker-inc"></span>', unsafe_allow_html=True)
+        if st.button("2. वार्षिक सामयिक वेतन वृद्धि (Annual Increment) आदेश जनरेटर ▶", use_container_width=True):
             go_to_page("increment_order")
             
-        # मॉड्यूल 3 बटन (बैंगनी/वॉयलेट - Violet)
-        if st.button("3. संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order) जनरेटर ▶", key="btn_mod_san", use_container_width=True):
+        # मॉड्यूल 3 बटन (बैंगनी मार्कर)
+        st.markdown('<span class="marker-san"></span>', unsafe_allow_html=True)
+        if st.button("3. संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order) जनरेटर ▶", use_container_width=True):
             go_to_page("sanchalan_portal")
             
         st.markdown("""
-        <div style="background-color: #212f3d; color: #a6acaf; padding: 15px 20px; font-size: 15px; border-radius: 8px; border: 1px solid #34495e; margin-top: 14px;">
-            4. कार्यमुक्ति / कार्यग्रहण (Relieving / Joining) आदेश [शीघ्र उपलब्ध]
-        </div>
+            <div style="background-color: #212f3d; color: #a6acaf; padding: 13px 20px; font-size: 15px; border-radius: 6px; border: 1px solid #34495e; margin-top: 5px; font-weight:bold;">
+                4. कार्यमुक्ति / कार्यग्रहण (Relieving / Joining) आदेश [शीघ्र उपलब्ध]
+            </div>
+        </fieldset>
         """, unsafe_allow_html=True)
 
 # =============================================================================
 # पृष्ठ 2: उपार्जित अवकाश समर्पण (PL Surrender) विंडो
 # =============================================================================
 elif active_page == "pl_surrender":
-    # मुख्य डैशबोर्ड पर वापस जाने का बटन (लाल - Red)
-    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="btn_back_dash"):
+    
+    # मुख्य डैशबोर्ड पर वापस जाने का बटन (लाल मार्कर)
+    st.markdown('<span class="marker-back"></span>', unsafe_allow_html=True)
+    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", use_container_width=False):
         go_to_page("dashboard")
+
+    # सफलतापूर्वक जुड़ने का पॉप-अप मैसेज 
+    if "pl_success_msg" in st.session_state and st.session_state.pl_success_msg:
+        st.success(st.session_state.pl_success_msg)
+        st.session_state.pl_success_msg = "" # एक बार दिखाकर मिटा दें
 
     if "pl_bundle_loaded" not in st.session_state:
         pl_bundle = load_json_data(PL_DATA_FILE)
@@ -655,7 +618,7 @@ elif active_page == "pl_surrender":
             with col_pl2:
                 pl_surr = st.selectbox("समर्पित दिन:", [15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1], key="w_pl_surr")
 
-        submit_pl = st.form_submit_button("➕ कर्मचारी सूची में जोड़ें")
+        submit_pl = st.form_submit_button("➕ कर्मचारी सूची में जोड़ें", type="primary")
         if submit_pl:
             if not pl_emp_name.strip():
                 st.error("कृपया कर्मचारी का नाम भरें!")
@@ -687,7 +650,7 @@ elif active_page == "pl_surrender":
                     "sub_treasury": pl_treasury.strip()
                 }
                 save_json_data(PL_DATA_FILE, {"office_data": cur_off, "employees": st.session_state.pl_employees})
-                st.success(f"कार्मिक '{pl_emp_name}' तालिका में जुड़ गया है!")
+                st.session_state.pl_success_msg = f"✅ कार्मिक '{pl_emp_name}' सफलतापूर्वक जुड़ गया है!"
                 st.rerun()
 
     if st.session_state.pl_employees:
@@ -721,6 +684,7 @@ elif active_page == "pl_surrender":
                     "sub_treasury": pl_treasury.strip()
                 }
                 save_json_data(PL_DATA_FILE, {"office_data": cur_off, "employees": st.session_state.pl_employees})
+                st.session_state.pl_success_msg = "🗑 कार्मिक सूची से हटा दिया गया है।"
                 st.rerun()
         with b_col2:
             st.write("")
@@ -796,8 +760,16 @@ elif active_page == "pl_surrender":
 # पृष्ठ 3: सामयिक वार्षिक वेतन वृद्धि (Annual Increment) विंडो
 # =============================================================================
 elif active_page == "increment_order":
+
+    # मुख्य डैशबोर्ड पर वापस जाने का बटन (लाल मार्कर)
+    st.markdown('<span class="marker-back"></span>', unsafe_allow_html=True)
     if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="btn_back_dash"):
         go_to_page("dashboard")
+
+    # सफलतापूर्वक जुड़ने का पॉप-अप मैसेज
+    if "inc_success_msg" in st.session_state and st.session_state.inc_success_msg:
+        st.success(st.session_state.inc_success_msg)
+        st.session_state.inc_success_msg = ""
 
     if "inc_bundle_loaded" not in st.session_state:
         inc_bundle = load_json_data(INC_DATA_FILE)
@@ -876,7 +848,7 @@ elif active_page == "increment_order":
 
     with st.form("inc_add_form"):
         st.write("")
-        submit_inc = st.form_submit_button("➕ कर्मचारी सूची में जोड़ें")
+        submit_inc = st.form_submit_button("➕ कर्मचारी सूची में जोड़ें", type="primary")
         if submit_inc:
             if not inc_emp_name.strip():
                 st.error("कृपया कार्मिक का नाम भरें!")
@@ -900,7 +872,7 @@ elif active_page == "increment_order":
                     "sub_treasury": inc_treasury.strip()
                 }
                 save_json_data(INC_DATA_FILE, {"office_data": cur_off, "employees": st.session_state.inc_employees})
-                st.success(f"कार्मिक '{inc_emp_name}' सूची में जुड़ गया है!")
+                st.session_state.inc_success_msg = f"✅ कार्मिक '{inc_emp_name}' सूची में जुड़ गया है!"
                 st.rerun()
 
     if st.session_state.inc_employees:
@@ -933,6 +905,7 @@ elif active_page == "increment_order":
                     "sub_treasury": inc_treasury.strip()
                 }
                 save_json_data(INC_DATA_FILE, {"office_data": cur_off, "employees": st.session_state.inc_employees})
+                st.session_state.inc_success_msg = "🗑 कार्मिक सूची से हटा दिया गया है।"
                 st.rerun()
         with ib_col2:
             st.write("")
@@ -1011,8 +984,16 @@ elif active_page == "increment_order":
 # पृष्ठ 4: संचालन पोर्टल भुगतान स्वीकृति आदेश (Sanchalan Portal Sanction) विंडो
 # =============================================================================
 elif active_page == "sanchalan_portal":
+    
+    # मुख्य डैशबोर्ड पर वापस जाने का बटन (लाल मार्कर)
+    st.markdown('<span class="marker-back"></span>', unsafe_allow_html=True)
     if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="btn_back_dash"):
         go_to_page("dashboard")
+
+    # सफलतापूर्वक जुड़ने का पॉप-अप मैसेज
+    if "san_success_msg" in st.session_state and st.session_state.san_success_msg:
+        st.success(st.session_state.san_success_msg)
+        st.session_state.san_success_msg = ""
 
     if "san_bundle_loaded" not in st.session_state:
         san_bundle = load_json_data(SAN_DATA_FILE, {"office_data": {}, "items": []})
@@ -1146,7 +1127,7 @@ elif active_page == "sanchalan_portal":
         comp_opts = SNA_COMPONENTS.get(san_level, SNA_COMPONENTS["SEC"])
         san_comp = st.selectbox("कंपोनेंट चयन:", comp_opts, key="w_san_comp")
 
-    if st.button("➕ पंक्ति तालिका में जोड़ें", key="btn_add_san_row"):
+    if st.button("➕ पंक्ति तालिका में जोड़ें", type="primary"):
         if not san_firm.strip() or not san_bill.strip():
             st.error("कृपया फर्म का नाम और बिल संख्या अवश्य भरें!")
         else:
@@ -1168,7 +1149,7 @@ elif active_page == "sanchalan_portal":
                 "order_no": san_order_no.strip()
             }
             save_json_data(SAN_DATA_FILE, {"office_data": cur_off, "items": st.session_state.san_items})
-            st.success("भुगतान विवरण तालिका में सफलतापूर्वक जोड़ दिया गया है!")
+            st.session_state.san_success_msg = f"✅ फर्म '{san_firm}' का विवरण तालिका में सफलतापूर्वक जुड़ गया है!"
             st.rerun()
 
     if st.session_state.san_items:
@@ -1200,6 +1181,7 @@ elif active_page == "sanchalan_portal":
                     "order_no": san_order_no.strip()
                 }
                 save_json_data(SAN_DATA_FILE, {"office_data": cur_off, "items": st.session_state.san_items})
+                st.session_state.san_success_msg = "🗑 पंक्ति तालिका से हटा दी गई है।"
                 st.rerun()
         with sb_col2:
             st.write("")
