@@ -1,9 +1,12 @@
-import streamlit as st
+import streamlit as str_module
 import base64
 import math
 import os
 import json
 from datetime import datetime
+
+# संक्षेप नाम के लिए एलियास
+st = str_module
 
 # 1. पेज कॉन्फ़िगरेशन
 st.set_page_config(
@@ -75,6 +78,7 @@ if "username" not in st.session_state:
 if not st.session_state.logged_in:
     st.markdown("""
     <style>
+        .stApp { background-color: #0c1d36; color: #ffffff; }
         .login-card {
             background-color: #132743;
             padding: 25px;
@@ -97,6 +101,10 @@ if not st.session_state.logged_in:
             font-size: 13px;
             margin-bottom: 15px;
             font-style: italic;
+        }
+        label, [data-testid="stWidgetLabel"] p {
+            color: #f4d03f !important;
+            font-weight: bold !important;
         }
     </style>
     
@@ -195,7 +203,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # =============================================================================
-# 4. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक (लॉगिन के बाद सक्रिय - टॉप राइट लॉगआउट बटन)
+# 4. डेटा फ़ाइल पाथ्स एवं टॉप-राइट लॉगआउट/प्रोफाइल बार
 # =============================================================================
 current_user = st.session_state.get("username", "default_user")
 
@@ -212,6 +220,7 @@ with col_btn:
     if st.button("🚪 लॉगआउट", use_container_width=True, help="अपने अकाउंट से सुरक्षित बाहर निकलें"):
         st.session_state.logged_in = False
         st.session_state.username = ""
+        st.query_params.clear()
         st.rerun()
 
 PL_DATA_FILE = os.path.join("output", f"saved_pl_data_{current_user}.json")
@@ -220,7 +229,11 @@ SAN_DATA_FILE = os.path.join("output", f"saved_sanchalan_data_{current_user}.jso
 
 MASTER_VENDORS_FILE = "master_vendors.json"
 MASTER_SCHOOLS_FILE = "master_schools.json"
-MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"# 3. ग्लोबल डेटा डेफिनिशन
+MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
+
+# =============================================================================
+# 3. ग्लोबल डेटा डेफिनिशन
+# =============================================================================
 DESIG_LIST = [
     "वरिष्ठ अध्यापक", "प्रधानाचार्य", "उप प्रधानाचार्य", "व्याख्याता", 
     "अध्यापक लेवल 2", "अध्यापक लेवल 1", "शारीरिक शिक्षक", "पुस्तकालय अध्यक्ष", 
@@ -475,13 +488,6 @@ st.markdown("""
         border: 1px solid #34495e; box-shadow: 0 4px 0 #17202a; text-align: left;
     }
 
-    .back-btn {
-        display: inline-block; background-color: #c0392b; color: #ffffff !important;
-        text-decoration: none !important; padding: 8px 18px; font-size: 14px; font-weight: bold;
-        border-radius: 6px; border: 1px solid #e74c3c; margin-bottom: 15px;
-    }
-    .back-btn:hover { background-color: #e74c3c; }
-
     /* ========================================================== */
     /* यूनिवर्सल बटन कलर फिक्स: स्ट्रीमलिट के सभी बटन्स को जबरन रंगीन व पाठ्य बनाना */
     /* ========================================================== */
@@ -574,7 +580,7 @@ if active_page == "dashboard":
         st.markdown("""
         <div class="scope-box">
             <span style="color: #f4d03f; font-weight: bold; font-size: 15px;">सॉफ्टवेयर के कार्य एवं भावी विस्तार योजना:</span><br>
-            <span style="color: #2ecc71;">✔ वर्तमान क्षमताएं:</span> उपार्जित अवकाश (PL Surrender) की सटीक नियमानुसार ऑटो-कैलकुलेशन, वार्षिक सामयिक वेतन वृद्धि (Annual Increment - जनवरी एवं जुलाई चक्र) आदेश 7th पे-मैट्रिक्स स्वतः गणना, संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Payment Sanction Order), मल्टीपल कार्मिक/वेंडर प्रविष्टि, लैंडस्केप व पोर्ट्रेट सटीक बॉर्डर प्रिंट आदेश[cite: 5].<br>
+            <span style="color: #2ecc71;">✔ वर्तमान क्षमताएं:</span> उपार्जित अवकाश (PL Surrender) की सटीक नियमानुसार ऑटो-कैलकुलेशन, वार्षिक सामयिक वेतन वृद्धि (Annual Increment - जनवरी एवं जुलाई चक्र) आदेश 7th पे-मैट्रिक्स स्वतः गणना, संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Payment Sanction Order), मल्टीपल कार्मिक/वेंडर प्रविष्टि, लैंडस्केप व पोर्ट्रेट सटीक बॉर्डर प्रिंट आदेश.<br>
             <span style="color: #f39c12;">🚀 भविष्य में संभावित कार्य:</span> कार्यमुक्ति (Relieving) व कार्यग्रहण (Joining) आदेश, बाल देखरेख अवकाश (CCL) स्वीकृति, स्थायीकरण (Confirmation) आदेश तथा समस्त वित्तीय व प्रशासनिक स्वीकृतियों का केंद्रीकृत स्वचालन।
         </div>
         """, unsafe_allow_html=True)
@@ -600,7 +606,7 @@ if active_page == "dashboard":
 # पृष्ठ 2: उपार्जित अवकाश समर्पण (PL Surrender) विंडो
 # =============================================================================
 elif active_page == "pl_surrender":
-    st.markdown('<a href="/?page=dashboard" target="_self" class="back-btn">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
+    st.markdown('<a href="/?page=dashboard" target="_self" style="display: inline-block; background-color: #c0392b; color: #ffffff !important; text-decoration: none !important; padding: 8px 18px; font-size: 14px; font-weight: bold; border-radius: 6px; border: 1px solid #e74c3c; margin-bottom: 15px;">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
 
     if "pl_bundle_loaded" not in st.session_state:
         pl_bundle = load_json_data(PL_DATA_FILE)
@@ -745,7 +751,7 @@ elif active_page == "pl_surrender":
               <td>{item['designation']}</td><td>{item['app_date']}</td><td>{item['basic_pay']:,}</td>
               <td>{item['total_pl']}</td><td>{item['surrender_pl']}</td><td><b>{item['balance_pl']}</b></td>
               <td>{item['basic_share']:,}</td><td>{item['da_share']:,}</td><td><b>{item['total_payable']:,}</b></td>
-            </tr>"""
+             </tr>"""
 
         plural_text = "निम्न अधिकारियों / कर्मचारियों" if len(st.session_state.pl_employees) > 1 else "निम्न अधिकारी / कर्मचारी"
         cert_plural = "उक्त कार्मिकों ने" if len(st.session_state.pl_employees) > 1 else "उक्त कार्मिक ने"
@@ -767,7 +773,7 @@ elif active_page == "pl_surrender":
           .sig-container {{ width: 100%; display: flex; justify-content: flex-end; margin-bottom: 10px; }}
           .sig-box {{ text-align: center; min-width: 230px; line-height: 1.35; }}
           .sig-space {{ height: 48px; }}
-          .dispatch-section {{ border-top: 1px dashed #777; padding-top: 8px; margin-top: 6px; }}
+          .dispatch-section {{ border-top: 1px dashed #777; padding-top: 8mm; margin-top: 6mm; }}
           .dispatch-row {{ width: 100%; display: flex; justify-content: space-between; font-size: 10pt; font-weight: bold; margin-bottom: 6px; }}
           .copy-list {{ margin: 4px 0 10px 25px; padding: 0; font-size: 9.5pt; line-height: 1.55; }}
           .footer-outside {{ margin-top: 4px; font-size: 8pt; color: #333; display: flex; justify-content: space-between; }}
@@ -799,7 +805,7 @@ elif active_page == "pl_surrender":
 # पृष्ठ 3: सामयिक वार्षिक वेतन वृद्धि (Annual Increment) विंडो
 # =============================================================================
 elif active_page == "increment_order":
-    st.markdown('<a href="/?page=dashboard" target="_self" class="back-btn">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
+    st.markdown('<a href="/?page=dashboard" target="_self" style="display: inline-block; background-color: #c0392b; color: #ffffff !important; text-decoration: none !important; padding: 8px 18px; font-size: 14px; font-weight: bold; border-radius: 6px; border: 1px solid #e74c3c; margin-bottom: 15px;">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
 
     if "inc_bundle_loaded" not in st.session_state:
         inc_bundle = load_json_data(INC_DATA_FILE)
@@ -956,7 +962,7 @@ elif active_page == "increment_order":
               <td>{item['designation']}</td><td>{item['service_status']}</td><td>{item['pay_level']}</td>
               <td>{item['current_basic']:,}</td><td>{item['cur_inc_date']}</td>
               <td><b>{item['next_basic']:,}</b></td><td>{item['next_inc_date']}</td>
-            </tr>"""
+             </tr>"""
 
         cert_text = (
             f"प्रमाणित किया जाता है कि उक्त कार्मिकों ने ऐसे किसी असाधारण अवकाश का उपभोग नहीं किया है, जिससे उनकी वेतन वृद्धि प्रभावित होती हो। "
@@ -981,7 +987,7 @@ elif active_page == "increment_order":
           .sig-container {{ width: 100%; display: flex; justify-content: flex-end; margin-bottom: 10px; }}
           .sig-box {{ text-align: center; min-width: 230px; line-height: 1.35; }}
           .sig-space {{ height: 48px; }}
-          .dispatch-section {{ border-top: 1px dashed #777; padding-top: 8px; margin-top: 6px; }}
+          .dispatch-section {{ border-top: 1px dashed #777; padding-top: 8mm; margin-top: 6mm; }}
           .dispatch-row {{ width: 100%; display: flex; justify-content: space-between; font-size: 10pt; font-weight: bold; margin-bottom: 6px; }}
           .copy-list {{ margin: 4px 0 10px 25px; padding: 0; font-size: 9.5pt; line-height: 1.5; }}
           .footer-outside {{ margin-top: 4px; font-size: 8pt; color: #333; display: flex; justify-content: space-between; }}
@@ -1013,7 +1019,7 @@ elif active_page == "increment_order":
 # पृष्ठ 4: संचालन पोर्टल भुगतान स्वीकृति आदेश (Sanchalan Portal Sanction) विंडो
 # =============================================================================
 elif active_page == "sanchalan_portal":
-    st.markdown('<a href="/?page=dashboard" target="_self" class="back-btn">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
+    st.markdown('<a href="/?page=dashboard" target="_self" style="display: inline-block; background-color: #c0392b; color: #ffffff !important; text-decoration: none !important; padding: 8px 18px; font-size: 14px; font-weight: bold; border-radius: 6px; border: 1px solid #e74c3c; margin-bottom: 15px;">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
 
     if "san_bundle_loaded" not in st.session_state:
         san_bundle = load_json_data(SAN_DATA_FILE, {"office_data": {}, "items": []})
@@ -1147,7 +1153,7 @@ elif active_page == "sanchalan_portal":
         comp_opts = SNA_COMPONENTS.get(san_level, SNA_COMPONENTS["SEC"])
         san_comp = st.selectbox("कंपोनेंट चयन:", comp_opts, key="w_san_comp")
 
-    if st.button("➕ पंक्ति तालिका में जोड़ें", key="btn_add_san_row"):
+    if st.button("➕ पंक्ति तालिका में जोड़ें", key="btn_add_san_row"):
         if not san_firm.strip() or not san_bill.strip():
             st.error("कृपया फर्म का नाम और बिल संख्या अवश्य भरें!")
         else:
@@ -1169,7 +1175,7 @@ elif active_page == "sanchalan_portal":
                 "order_no": san_order_no.strip()
             }
             save_json_data(SAN_DATA_FILE, {"office_data": cur_off, "items": st.session_state.san_items})
-            st.success("भुगतान विवरण तालिका में सफलताપूर्वक जोड़ दिया गया है!")
+            st.success("भुगतान विवरण तालिका में सफलतापूर्वक जोड़ दिया गया है!")
             st.rerun()
 
     if st.session_state.san_items:
@@ -1289,7 +1295,7 @@ elif active_page == "sanchalan_portal":
             return h
 
         page1_rows = get_san_rows_html(page1_data, 1)
-        developer_text = "सॉफ्टवेयर डेवलपर: आलोक कुमार सिंह, वरिष्ठ अध्यापक, राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी | ईमेल: alokjobner@gmail.com"
+        developer_text = "सॉफ्टवेयर डेवलपर: आलोक कुमार सिंह, वरिष्ठ अध्यापक, राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी | ईमेल: alokjobner@gmail.com"
 
         if not page2_data:
             san_html = f"""<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Sanchalan Payment Sanction Order</title>
@@ -1407,7 +1413,7 @@ elif active_page == "sanchalan_portal":
             <div class='page-box'>
                 <table>
                     <tr>
-                        <th>ค.स.</th><th>संस्था का नाम</th><th>फर्म का नाम / प्राप्तकर्ता</th>
+                        <th>क.स.</th><th>संस्था का नाम</th><th>फर्म का नाम / प्राप्तकर्ता</th>
                         <th>खाता संख्या व IFSC कोड / विशिष्ट टिप्पणी</th><th>बिल/वाउचर सं. एवं दिनांक</th>
                         <th>राशि (₹)</th><th>पुनर्भरण</th><th>कंपोनेंट व स्तर (SEC/ELE)</th>
                     </tr>
