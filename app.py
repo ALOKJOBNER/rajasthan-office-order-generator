@@ -13,7 +13,187 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- SECURE THEME-MATCHED LOGIN & AUTHENTICATION WRAPPER ---
+# --- THEME-MATCHED STYLING FOR LOGIN & ENTIRE APP ---
+st.markdown("""
+<style>
+    .stApp { background-color: #0c1d36; color: #ffffff; }
+    
+    .login-container {
+        max-width: 480px;
+        margin: 40px auto;
+        background-color: #132743;
+        padding: 30px;
+        border-radius: 12px;
+        border: 2px solid #f4d03f;
+        box-shadow: 0 0 25px rgba(0,0,0,0.8);
+    }
+    
+    .main-header {
+        background: linear-gradient(90deg, #102a45, #1b4f72);
+        padding: 16px;
+        border-radius: 10px;
+        text-align: center;
+        border: 2px solid #f4d03f;
+        margin-bottom: 20px;
+    }
+    
+    .profile-card {
+        background-color: #132743;
+        padding: 18px;
+        border-radius: 12px;
+        border: 1px solid #f39c12;
+        text-align: center;
+    }
+
+    .sun-box {
+        position: relative;
+        width: 260px;
+        height: 260px;
+        margin: 0 auto 5px auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .spinning-rays {
+        position: absolute;
+        animation: spinClockwise 12s linear infinite;
+        z-index: 1;
+    }
+
+    @keyframes spinClockwise {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .profile-center-img {
+        position: relative;
+        width: 130px;
+        height: 130px;
+        border-radius: 50%;
+        border: 3px solid #f39c12;
+        background-size: cover;
+        background-position: center 25%;
+        z-index: 2;
+        box-shadow: 0 0 16px rgba(0,0,0,0.8);
+    }
+
+    .scope-box {
+        background-color: #132743;
+        border: 1px solid #f4d03f;
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin-bottom: 20px;
+        font-size: 13.5px;
+        line-height: 1.6;
+    }
+
+    label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span, .stRadio label p, div[data-baseweb="radio"] div {
+        color: #f4d03f !important;
+        font-size: 14.5px !important;
+        font-weight: bold !important;
+        opacity: 1 !important;
+    }
+
+    input, select, textarea, [data-baseweb="select"], [data-baseweb="textarea"] {
+        background-color: #1c3b60 !important;
+        color: #ffffff !important;
+        font-weight: bold !important;
+        border: 1px solid #2e5b88 !important;
+        border-radius: 6px !important;
+    }
+
+    [data-testid="stExpander"] {
+        background-color: #132743 !important;
+        border: 1px solid #f4d03f !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stExpander"] summary span {
+        color: #f4d03f !important;
+        font-weight: bold !important;
+    }
+
+    .menu-btn-pl {
+        display: block; width: 100%; background-color: #1f618d; color: #ffffff !important;
+        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
+        border-radius: 8px; border: 2px solid #2980b9; box-shadow: 0 5px 0 #154360; margin-bottom: 14px; text-align: left;
+    }
+    .menu-btn-pl:hover { background-color: #2980b9; }
+
+    .menu-btn-inc {
+        display: block; width: 100%; background-color: #27ae60; color: #ffffff !important;
+        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
+        border-radius: 8px; border: 2px solid #2ecc71; box-shadow: 0 5px 0 #1e8449; margin-bottom: 14px; text-align: left;
+    }
+    .menu-btn-inc:hover { background-color: #2ecc71; }
+
+    .menu-btn-san {
+        display: block; width: 100%; background-color: #8e44ad; color: #ffffff !important;
+        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
+        border-radius: 8px; border: 2px solid #9b59b6; box-shadow: 0 5px 0 #512e5f; margin-bottom: 14px; text-align: left;
+    }
+    .menu-btn-san:hover { background-color: #9b59b6; }
+
+    .menu-btn-rel {
+        display: block; width: 100%; background-color: #212f3d; color: #a6acaf !important;
+        text-decoration: none !important; padding: 13px 20px; font-size: 15px; border-radius: 8px;
+        border: 1px solid #34495e; box-shadow: 0 4px 0 #17202a; text-align: left;
+    }
+
+    .back-btn {
+        display: inline-block; background-color: #c0392b; color: #ffffff !important;
+        text-decoration: none !important; padding: 8px 18px; font-size: 14px; font-weight: bold;
+        border-radius: 6px; border: 1px solid #e74c3c; margin-bottom: 15px;
+    }
+    .back-btn:hover { background-color: #e74c3c; }
+
+    button, div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
+        background-color: #2980b9 !important;
+        color: #ffffff !important;
+        font-weight: bold !important;
+        border: 2px solid #3498db !important;
+        border-radius: 6px !important;
+        box-shadow: 0 4px 0 #1b4f72 !important;
+    }
+    button *, div.stButton > button *, div[data-testid="stFormSubmitButton"] > button * {
+        color: #ffffff !important;
+        font-weight: bold !important;
+    }
+
+    div[data-testid="stFormSubmitButton"] > button {
+        background-color: #27ae60 !important;
+        border-color: #2ecc71 !important;
+        box-shadow: 0 4px 0 #1e8449 !important;
+    }
+
+    div[data-testid="stDownloadButton"] > button {
+        background-color: #d35400 !important;
+        border: 2px solid #e67e22 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 6px 0 #a04000 !important;
+        width: 100% !important;
+        padding: 14px !important;
+        margin-top: 15px !important;
+    }
+    div[data-testid="stDownloadButton"] > button * {
+        color: #ffffff !important;
+        font-size: 17px !important;
+        font-weight: 800 !important;
+    }
+
+    .custom-table {
+        width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px;
+    }
+    .custom-table th {
+        background-color: #1b4f72; color: #ffffff; padding: 8px; border: 1px solid #2e5b88; text-align: center;
+    }
+    .custom-table td {
+        background-color: #0e2338; color: #ffffff; padding: 8px; border: 1px solid #2e5b88; text-align: center;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- ROBUST SESSION-BASED AUTHENTICATION LOGIC ---
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "logged_in_user" not in st.session_state:
@@ -21,20 +201,18 @@ if "logged_in_user" not in st.session_state:
 
 if not st.session_state.authenticated:
     st.markdown("""
-    <div style="max-width: 500px; margin: 30px auto; background: #132743; padding: 25px; border-radius: 12px; border: 2px solid #f4d03f; box-shadow: 0 0 20px rgba(0,0,0,0.8);">
-        <div style="text-align: center; margin-bottom: 15px;">
-            <h2 style="color: #f4d03f; margin: 0; font-size: 22px;">🔐 सॉफ्टवेयर लॉगिन पोर्टल</h2>
-            <p style="color: #aed6f1; font-size: 13px; margin-top: 5px; font-style: italic;">
-                राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर सॉफ्टवेयर
-            </p>
-        </div>
+    <div class="login-container">
+        <h2 style="color: #f4d03f; text-align: center; margin: 0 0 5px 0; font-size: 24px;">🔐 सॉफ्टवेयर लॉगिन पोर्टल</h2>
+        <p style="color: #aed6f1; text-align: center; font-size: 13px; margin-bottom: 15px; font-style: italic;">
+            राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर सॉफ्टवेयर
+        </p>
     </div>
     """, unsafe_allow_html=True)
     
     auth_tab1, auth_tab2, auth_tab3, auth_tab4 = st.tabs(["🔑 Login", "📝 Register", "❓ Forgot Password", "👤 Forgot Username"])
     
     with auth_tab1:
-        st.markdown("<p style='color: #5dade2; font-weight: bold;'>अपने क्रेडेंशियल दर्ज करके प्रवेश करें:</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #5dade2; font-weight: bold;'>अपने क्रेडेंशियल दर्ज करें:</p>", unsafe_allow_html=True)
         with st.form("login_form_secure"):
             l_user = st.text_input("User ID / Username")
             l_pass = st.text_input("Password", type="password")
@@ -50,7 +228,7 @@ if not st.session_state.authenticated:
                     st.error(msg)
                     
     with auth_tab2:
-        st.markdown("<p style='color: #2ecc71; font-weight: bold;'>नया खाता बनाएं (केवल पहली बार):</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #2ecc71; font-weight: bold;'>नया खाता बनाएं:</p>", unsafe_allow_html=True)
         with st.form("reg_form_secure"):
             r_user = st.text_input("नया User ID / Username चुनें")
             r_pass = st.text_input("Password चुनें", type="password")
@@ -95,7 +273,7 @@ if not st.session_state.authenticated:
                     st.error(msg)
     st.stop()
 
-# जब यूजर लॉगिन हो जाएगा, तब यह साइडबार और बाकी सॉफ्टवेयर दिखाई देगा
+# जब यूजर सफलतापूर्वक लॉगिन कर लेगा, तब साइडबार और सॉफ्टवेयर का मुख्य भाग दिखाई देगा
 with st.sidebar:
     st.markdown(f"""
     <div style="background-color: #132743; padding: 10px; border-radius: 6px; border: 1px solid #f4d03f; text-align: center; margin-bottom: 10px;">
@@ -276,90 +454,6 @@ def generate_sun_rays_svg():
     </svg>'''
 
 rays_svg_html = generate_sun_rays_svg()
-
-st.markdown("""
-<style>
-    .stApp { background-color: #0c1d36; color: #ffffff; }
-    .main-header {
-        background: linear-gradient(90deg, #102a45, #1b4f72);
-        padding: 16px; border-radius: 10px; text-align: center; border: 2px solid #f4d03f; margin-bottom: 20px;
-    }
-    .profile-card {
-        background-color: #132743; padding: 18px; border-radius: 12px; border: 1px solid #f39c12; text-align: center;
-    }
-    .sun-box {
-        position: relative; width: 260px; height: 260px; margin: 0 auto 5px auto; display: flex; align-items: center; justify-content: center;
-    }
-    .spinning-rays {
-        position: absolute; animation: spinClockwise 12s linear infinite; z-index: 1;
-    }
-    @keyframes spinClockwise {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    .profile-center-img {
-        position: relative; width: 130px; height: 130px; border-radius: 50%; border: 3px solid #f39c12; background-size: cover; background-position: center 25%; z-index: 2; box-shadow: 0 0 16px rgba(0,0,0,0.8);
-    }
-    .scope-box {
-        background-color: #132743; border: 1px solid #f4d03f; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; font-size: 13.5px; line-height: 1.6;
-    }
-    label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span, .stRadio label p, div[data-baseweb="radio"] div {
-        color: #f4d03f !important; font-size: 14.5px !important; font-weight: bold !important; opacity: 1 !important;
-    }
-    input, select, textarea, [data-baseweb="select"], [data-baseweb="textarea"] {
-        background-color: #1c3b60 !important; color: #ffffff !important; font-weight: bold !important; border: 1px solid #2e5b88 !important; border-radius: 6px !important;
-    }
-    [data-testid="stExpander"] {
-        background-color: #132743 !important; border: 1px solid #f4d03f !important; border-radius: 8px !important;
-    }
-    [data-testid="stExpander"] summary span {
-        color: #f4d03f !important; font-weight: bold !important;
-    }
-    .menu-btn-pl {
-        display: block; width: 100%; background-color: #1f618d; color: #ffffff !important; text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold; border-radius: 8px; border: 2px solid #2980b9; box-shadow: 0 5px 0 #154360; margin-bottom: 14px; text-align: left;
-    }
-    .menu-btn-pl:hover { background-color: #2980b9; }
-    .menu-btn-inc {
-        display: block; width: 100%; background-color: #27ae60; color: #ffffff !important; text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold; border-radius: 8px; border: 2px solid #2ecc71; box-shadow: 0 5px 0 #1e8449; margin-bottom: 14px; text-align: left;
-    }
-    .menu-btn-inc:hover { background-color: #2ecc71; }
-    .menu-btn-san {
-        display: block; width: 100%; background-color: #8e44ad; color: #ffffff !important; text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold; border-radius: 8px; border: 2px solid #9b59b6; box-shadow: 0 5px 0 #512e5f; margin-bottom: 14px; text-align: left;
-    }
-    .menu-btn-san:hover { background-color: #9b59b6; }
-    .menu-btn-rel {
-        display: block; width: 100%; background-color: #212f3d; color: #a6acaf !important; text-decoration: none !important; padding: 13px 20px; font-size: 15px; border-radius: 8px; border: 1px solid #34495e; box-shadow: 0 4px 0 #17202a; text-align: left;
-    }
-    .back-btn {
-        display: inline-block; background-color: #c0392b; color: #ffffff !important; text-decoration: none !important; padding: 8px 18px; font-size: 14px; font-weight: bold; border-radius: 6px; border: 1px solid #e74c3c; margin-bottom: 15px;
-    }
-    .back-btn:hover { background-color: #e74c3c; }
-    button, div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
-        background-color: #2980b9 !important; color: #ffffff !important; font-weight: bold !important; border: 2px solid #3498db !important; border-radius: 6px !important; box-shadow: 0 4px 0 #1b4f72 !important;
-    }
-    button *, div.stButton > button *, div[data-testid="stFormSubmitButton"] > button * {
-        color: #ffffff !important; font-weight: bold !important;
-    }
-    div[data-testid="stFormSubmitButton"] > button {
-        background-color: #27ae60 !important; border-color: #2ecc71 !important; box-shadow: 0 4px 0 #1e8449 !important;
-    }
-    div[data-testid="stDownloadButton"] > button {
-        background-color: #d35400 !important; border: 2px solid #e67e22 !important; border-radius: 8px !important; box-shadow: 0 6px 0 #a04000 !important; width: 100% !important; padding: 14px !important; margin-top: 15px !important;
-    }
-    div[data-testid="stDownloadButton"] > button * {
-        color: #ffffff !important; font-size: 17px !important; font-weight: 800 !important;
-    }
-    .custom-table {
-        width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px;
-    }
-    .custom-table th {
-        background-color: #1b4f72; color: #ffffff; padding: 8px; border: 1px solid #2e5b88; text-align: center;
-    }
-    .custom-table td {
-        background-color: #0e2338; color: #ffffff; padding: 8px; border: 1px solid #2e5b88; text-align: center;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 params = st.query_params
 active_page = params.get("page", "dashboard")
