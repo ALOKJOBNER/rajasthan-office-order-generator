@@ -24,72 +24,110 @@ st.set_page_config(
     page_icon="📜",
     layout="wide"
 )
-# =============================================================================
-# यूजर ऑथेंटिकेशन (Login & Sign-up) सिस्टम
-# =============================================================================
-USERS_DB_FILE = "users_db.json"
-
-def load_users():
-    if os.path.exists(USERS_DB_FILE):
-        try:
-            with open(USERS_DB_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {"users": {}}
-    return {"users": {}}
-
-def save_users(data):
-    with open(USERS_DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "username" not in st.session_state:
-    st.session_state.username = ""
-
 if not st.session_state.logged_in:
+    # सॉफ्टवेयर की मुख्य थीम वाला आकर्षक हेडर और CSS
     st.markdown("""
-    <div style="text-align: center; padding: 20px;">
-        <h2 style="color: #f4d03f;">राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर सॉफ्टवेयर</h2>
-        <p style="color: #aed6f1;">कृपया आगे बढ़ने के लिए लॉगिन करें या नया अकाउंट बनाएं (सुरक्षित मल्टी-यूजर मोड)</p>
+    <style>
+        .login-card {
+            background-color: #132743;
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid #f4d03f;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            max-width: 500px;
+            margin: 20px auto;
+        }
+        .login-title {
+            color: #f4d03f;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .login-sub {
+            color: #aed6f1;
+            text-align: center;
+            font-size: 13.5px;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+    </style>
+    
+    <div class="login-card">
+        <div class="login-title">📜 राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर</div>
+        <div class="login-sub">सुरक्षित मल्टी-यूजर प्रशासनिक एवं वित्तीय स्वचालन प्रणाली</div>
     </div>
     """, unsafe_allow_html=True)
+
+    _, col_center, _ = st.columns([1, 2.5, 1])
     
-    tab_login, tab_signup = st.tabs(["🔑 लॉगिन (Login)", "📝 नया अकाउंट बनाएं (Sign Up)"])
-    
-    with tab_login:
-        st.subheader("अपने अकाउंट से लॉगिन करें")
-        login_user = st.text_input("यूजरनेम (Username)", key="login_u")
-        login_pass = st.text_input("पासवर्ड (Password)", type="password", key="login_p")
+    with col_center:
+        st.markdown('<div style="background-color: #132743; padding: 25px; border-radius: 10px; border: 1px solid #2980b9;">', unsafe_allow_html=True)
         
-        if st.button("लॉगिन करें"):
-            db = load_users()
-            users = db.get("users", {})
-            if login_user in users and users[login_user]["password"] == login_pass:
-                st.session_state.logged_in = True
-                st.session_state.username = login_user
-                st.success("लॉगिन सफल रहा!")
-                st.rerun()
-            else:
-                st.error("गलत यूजरनेम या पासवर्ड!")
-                
-    with tab_signup:
-        st.subheader("नया अकाउंट रजिस्टर करें")
-        new_user = st.text_input("नया यूजरनेम बनाएं", key="signup_u")
-        new_pass = st.text_input("नया पासवर्ड बनाएं", type="password", key="signup_p")
+        # अब यहाँ तीन टैब होंगे: लॉगिन, साइन-अप और पासवर्ड रिकवरी
+        tab_login, tab_signup, tab_forgot = st.tabs(["🔑 लॉगिन", "📝 नया अकाउंट", "🔄 पासवर्ड रीसेट"])
         
-        if st.button("रजिस्टर करें"):
-            db = load_users()
-            users = db.get("users", {})
-            if not new_user.strip() or not new_pass.strip():
-                st.error("यूजरनेम और पासवर्ड खाली नहीं हो सकते!")
-            elif new_user in users:
-                st.error("यह यूजरनेम पहले से मौजूद है, दूसरा चुनें!")
-            else:
-                users[new_user] = {"password": new_pass}
-                db["users"] = users
-                save_users(db)
-                st.success("अकाउंट सफलतापूर्वक बन गया है! अब आप 'लॉगिन' टैब में जाकर प्रवेश कर सकते हैं।")
+        with tab_login:
+            st.markdown("<p style='color: #2ecc71; font-weight: bold; margin-top: 10px;'>अपने क्रेडेंशियल्स दर्ज करें:</p>", unsafe_allow_html=True)
+            login_user = st.text_input("यूजरनेम (Username)", key="login_u")
+            login_pass = st.text_input("पासवर्ड (Password)", type="password", key="login_p")
+            
+            if st.button("🚀 सुरक्षित लॉगिन करें"):
+                db = load_users()
+                users = db.get("users", {})
+                if login_user in users and users[login_user]["password"] == login_pass:
+                    st.session_state.logged_in = True
+                    st.session_state.username = login_user
+                    st.success("लॉगिन सफल रहा!")
+                    st.rerun()
+                else:
+                    st.error("गलत यूजरनेम या पासवर्ड!")
+                    
+        with tab_signup:
+            st.markdown("<p style='color: #f39c12; font-weight: bold; margin-top: 10px;'>नया अकाउंट बनाएं (सुरक्षा प्रश्न सहित):</p>", unsafe_allow_html=True)
+            new_user = st.text_input("नया यूजरनेम बनाएं", key="signup_u")
+            new_pass = st.text_input("नया पासवर्ड बनाएं", type="password", key="signup_p")
+            sec_ans = st.text_input("सुरक्षा प्रश्न: आपका गृह जिला (Home District) कौन सा है?", key="signup_sec", help="पासवर्ड भूलने पर रिकवरी के काम आएगा")
+            
+            if st.button("✨ रजिस्टर करें"):
+                db = load_users()
+                users = db.get("users", {})
+                if not new_user.strip() or not new_pass.strip() or not sec_ans.strip():
+                    st.error("सभी फील्ड भरना अनिवार्य है!")
+                elif new_user in users:
+                    st.error("यह यूजरनेम पहले से मौजूद है, दूसरा चुनें!")
+                else:
+                    users[new_user] = {
+                        "password": new_pass,
+                        "security_answer": sec_ans.strip().lower()
+                    }
+                    db["users"] = users
+                    save_users(db)
+                    st.success("अकाउंट बन गया है! अब 'लॉगिन' टैब में जाकर प्रवेश करें।")
+
+        with tab_forgot:
+            st.markdown("<p style='color: #e74c3c; font-weight: bold; margin-top: 10px;'>पासवर्ड रीसेट करें:</p>", unsafe_allow_html=True)
+            f_user = st.text_input("अपना यूजरनेम दर्ज करें", key="f_user")
+            f_ans = st.text_input("अपना गृह जिला (Home District) दर्ज करें", key="f_ans", help="जो रजिस्टर करते समय भरा था")
+            new_p1 = st.text_input("नया पासवर्ड दर्ज करें", type="password", key="f_p1")
+            new_p2 = st.text_input("नया पासवर्ड दोबारा दर्ज करें", type="password", key="f_p2")
+            
+            if st.button("🔄 पासवर्ड अपडेट करें"):
+                db = load_users()
+                users = db.get("users", {})
+                if f_user not in users:
+                    st.error("यह यूजरनेम मौजूद नहीं है!")
+                elif users[f_user].get("security_answer", "") != f_ans.strip().lower():
+                    st.error("सुरक्षा उत्तर गलत है!")
+                elif not new_p1.strip() or new_p1 != new_p2:
+                    st.error("नया पासवर्ड खाली नहीं हो सकता या दोनों मैच नहीं हो रहे!")
+                else:
+                    users[f_user]["password"] = new_p1
+                    db["users"] = users
+                    save_users(db)
+                    st.success("पासवर्ड सफलतापूर्वक बदल गया है! अब 'लॉगिन' टैब से लॉगिन करें।")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
                 
     st.stop()
 # 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक (यूजर-वाइज आइसोलेशन के साथ)
