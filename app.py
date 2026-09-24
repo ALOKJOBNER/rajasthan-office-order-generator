@@ -61,8 +61,8 @@ DESIG_LIST = [
 
 DA_PRESETS = {
     "7th Pay Commission": ["60%","58%", "55%", "53%", "50%", "46%", "42%", "38%", "34%", "31%", "28%", "17%", "12%", "9%", "7%", "5%", "4%", "2%", "0%"],
-    "6th Pay Commission": ["262%","246%", "239%", "230%", "221%", "212%", "203%", "196%", "189%", "164%", "154%", "142%", "132%", "125%", "119%", "113%", "107%", "100%"],
-    "5th Pay Commission": ["483%","443%", "427%", "412%", "398%", "381%", "368%", "356%", "341%", "324%", "305%", "295%", "250%", "200%"]
+    "6th Pay Commission": ["262%","257%","246%", "239%", "230%", "221%", "212%", "203%", "196%", "189%", "164%", "154%", "142%", "132%", "125%", "119%", "113%", "107%", "100%"],
+    "5th Pay Commission": ["483%""474%","443%" "427%", "412%", "398%", "381%", "368%", "356%", "341%", "324%", "305%", "295%", "250%", "200%"]
 }
 
 PAY_MATRIX_7TH = {
@@ -181,7 +181,6 @@ def generate_sun_rays_svg():
 
 rays_svg_html = generate_sun_rays_svg()
 
-# अचूक CSS: सभी प्रकार के बटन्स (फॉर्म, नॉर्मल, डिलीट, सेव, रीसेट) और रेडियो टेक्स्ट का रंग सही करना
 st.markdown("""
 <style>
     .stApp { background-color: #0c1d36; color: #ffffff; }
@@ -246,7 +245,6 @@ st.markdown("""
         line-height: 1.6;
     }
 
-    /* सभी लेबल्स और रेडियो बटन्स के टेक्स्ट को स्पष्ट पीला/सफेद रखना */
     label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span, .stRadio label p, div[data-baseweb="radio"] div {
         color: #f4d03f !important;
         font-size: 14.5px !important;
@@ -254,7 +252,6 @@ st.markdown("""
         opacity: 1 !important;
     }
 
-    /* इनपुट, सेलेक्ट और टेक्स्ट एरिया */
     input, select, textarea, [data-baseweb="select"], [data-baseweb="textarea"] {
         background-color: #1c3b60 !important;
         color: #ffffff !important;
@@ -263,7 +260,6 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* एक्सपेंडर */
     [data-testid="stExpander"] {
         background-color: #132743 !important;
         border: 1px solid #f4d03f !important;
@@ -314,9 +310,6 @@ st.markdown("""
     }
     .back-btn:hover { background-color: #e74c3c; }
 
-    /* ========================================================== */
-    /* यूनिवर्सल बटन कलर फिक्स: स्ट्रीमलिट के सभी बटन्स को जबरन रंगीन व पाठ्य बनाना */
-    /* ========================================================== */
     button, div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
         background-color: #2980b9 !important;
         color: #ffffff !important;
@@ -330,14 +323,12 @@ st.markdown("""
         font-weight: bold !important;
     }
 
-    /* फॉर्म सबमिट बटन (हरा रंग) */
     div[data-testid="stFormSubmitButton"] > button {
         background-color: #27ae60 !important;
         border-color: #2ecc71 !important;
         box-shadow: 0 4px 0 #1e8449 !important;
     }
 
-    /* डाउनलोड / आदेश जनरेट बटन (नारंगी रंग) */
     div[data-testid="stDownloadButton"] > button {
         background-color: #d35400 !important;
         border: 2px solid #e67e22 !important;
@@ -471,25 +462,50 @@ elif active_page == "pl_surrender":
 
     st.markdown("<h5 style='color:#5dade2; margin-bottom: 4px;'>२. कर्मचारी प्रविष्टि विवरण</h5>", unsafe_allow_html=True)
     
-    with st.form("pl_add_form"):
-        e1, e2, e3 = st.columns(3)
-        with e1:
-            pl_emp_name = st.text_input("कर्मचारी का नाम:", key="w_pl_name")
-            pl_app_date = st.date_input("आवेदन दिनांक:", datetime.now(), key="w_pl_app_dt")
-        with e2:
-            pl_desig = st.selectbox("पद (Designation):", DESIG_LIST, index=0, key="w_pl_d")
-            if pl_desig == "अन्य":
-                pl_desig = st.text_input("यदि 'अन्य' है तो पद लिखें:", key="w_pl_oth_d")
-            pl_basic = st.number_input("मूल वेतन (Basic Pay ₹):", min_value=10000, max_value=250000, value=65000, step=100, key="w_pl_b")
-        with e3:
-            pl_comm = st.selectbox("वेतन आयोग:", list(DA_PRESETS.keys()), key="w_pl_comm")
-            pl_da = st.selectbox("महंगाई भत्ता (DA %):", DA_PRESETS[pl_comm], key="w_pl_da")
-            col_pl1, col_pl2 = st.columns(2)
-            with col_pl1:
-                pl_total = st.number_input("कुल उपार्जित अवकाश:", min_value=15, max_value=300, value=265, step=1, key="w_pl_tot")
-            with col_pl2:
-                pl_surr = st.selectbox("समर्पित दिन:", [15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1], key="w_pl_surr")
+    # स्ट्रीमलिट के फॉर्म नियम के अनुसार वेतन आयोग व DA चयन को फॉर्म के बाहर रखा गया है
+    e1, e2, e3 = st.columns(3)
+    with e1:
+        pl_emp_name = st.text_input("कर्मचारी का नाम:", key="w_pl_name")
+        pl_app_date = st.date_input("आवेदन दिनांक:", datetime.now(), key="w_pl_app_dt")
+    with e2:
+        pl_desig = st.selectbox("पद (Designation):", DESIG_LIST, index=0, key="w_pl_d")
+        if pl_desig == "अन्य":
+            pl_desig = st.text_input("यदि 'अन्य' है तो पद लिखें:", key="w_pl_oth_d")
+        pl_basic = st.number_input("मूल वेतन (Basic Pay ₹):", min_value=10000, max_value=250000, value=65000, step=100, key="w_pl_b")
+    with e3:
+        if "w_pl_comm" not in st.session_state:
+            st.session_state.w_pl_comm = "7th Pay Commission"
 
+        def update_da_options():
+            selected_comm = st.session_state.w_pl_comm
+            available_list = DA_PRESETS.get(selected_comm, DA_PRESETS["7th Pay Commission"])
+            st.session_state.w_pl_da = available_list[0]
+
+        pl_comm = st.selectbox(
+            "वेतन आयोग:", 
+            list(DA_PRESETS.keys()), 
+            key="w_pl_comm", 
+            on_change=update_da_options
+        )
+        
+        current_das = DA_PRESETS.get(pl_comm, DA_PRESETS["7th Pay Commission"])
+        
+        if "w_pl_da" not in st.session_state or st.session_state.w_pl_da not in current_das:
+            st.session_state.w_pl_da = current_das[0]
+
+        pl_da = st.selectbox(
+            "महंगाई भत्ता (DA %):", 
+            current_das, 
+            key="w_pl_da"
+        )
+        
+        col_pl1, col_pl2 = st.columns(2)
+        with col_pl1:
+            pl_total = st.number_input("कुल उपार्जित अवकाश:", min_value=15, max_value=300, value=265, step=1, key="w_pl_tot")
+        with col_pl2:
+            pl_surr = st.selectbox("समर्पित दिन:", [15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1], key="w_pl_surr")
+
+    with st.form("pl_add_form"):
         submit_pl = st.form_submit_button("➕ कर्मचारी सूची में जोड़ें")
         if submit_pl:
             if not pl_emp_name.strip():
@@ -898,7 +914,6 @@ elif active_page == "sanchalan_portal":
     </div>
     """, unsafe_allow_html=True)
 
-    # मास्टर डेटा प्रबंधन एक्सपेंडर (पूर्णतः दृश्यमान टेक्स्ट और बटन्स के साथ)
     with st.expander("⚙️ मास्टर डेटा प्रबंधन (स्कूल, वेंडर और 29 एम्प्लॉयीज बेनिफिशियरी देखें/बदले)"):
         st.markdown("<span style='color: #f4d03f; font-weight: bold;'>आप यहाँ अपनी आवश्यकतानुसार मास्टर डेटा JSON प्रारूप में अपडेट कर सकते हैं:</span>", unsafe_allow_html=True)
         
@@ -1001,7 +1016,7 @@ elif active_page == "sanchalan_portal":
                 "order_no": san_order_no.strip()
             }
             save_json_data(SAN_DATA_FILE, {"office_data": cur_off, "items": st.session_state.san_items})
-            st.success("भुगतान विवरण तालिका में सफलताપूर्वक जोड़ दिया गया है!")
+            st.success("भुगतान विवरण तालिका में सफलतापूर्वक जोड़ दिया गया है!")
             st.rerun()
 
     if st.session_state.san_items:
@@ -1239,7 +1254,7 @@ elif active_page == "sanchalan_portal":
             <div class='page-box'>
                 <table>
                     <tr>
-                        <th>ค.स.</th><th>संस्था का नाम</th><th>फर्म का नाम / प्राप्तकर्ता</th>
+                        <th>क.स.</th><th>संस्था का नाम</th><th>फर्म का नाम / प्राप्तकर्ता</th>
                         <th>खाता संख्या व IFSC कोड / विशिष्ट टिप्पणी</th><th>बिल/वाउचर सं. एवं दिनांक</th>
                         <th>राशि (₹)</th><th>पुनर्भरण</th><th>कंपोनेंट व स्तर (SEC/ELE)</th>
                     </tr>
