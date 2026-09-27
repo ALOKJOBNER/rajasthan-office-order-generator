@@ -1,0 +1,22 @@
+Verified release - Rajasthan Office Order Generator
+
+Checks performed:
+1. Python py_compile: PASS
+2. Mock startup/import test for dashboard: PASS
+3. Mock startup/import test for PL Surrender: PASS
+4. Mock startup/import test for Annual Increment: PASS
+5. Mock startup/import test for Sanchalan Portal: PASS
+6. Mock startup/import test for Salary Arrear: PASS
+7. DA/GPF schedule test: PASS for all configured periods 2018-2026.
+8. 2019-07 through 2020-02 DA arrear rate: 5%: PASS.
+9. 2020-03 onward cash DA 17%: PASS.
+10. 23-03-2023 effective-date handling: implemented as a single arrear/effective date field.
+11. Promotion/ACP-MACP/Pay Fixation: separate old/new Pay Level inputs implemented.
+12. Missed increment option: Yes/No plus multiple missed increment dates implemented.
+13. 7th CPC matrix next-cell increment helper: PASS in direct matrix tests.
+14. Negative GPF/SI/RGHS differences: floored at zero.
+15. GPF deposit: only on configured DA-arrear months and based on due basic.
+16. PDF HTML structure test: PASS; merged Income and Deductions headers, subheaders, serial number, deduction total and net payable columns, multi-page boxes and footer present.
+
+Important environment limitation:
+The execution environment used for verification did not have the Streamlit package installed, so a real Streamlit browser session could not be launched here. Page-level startup was therefore tested with a controlled Streamlit stub, and the Python source was compiled successfully. The user's local .venv should be used for final browser/UI smoke testing.
