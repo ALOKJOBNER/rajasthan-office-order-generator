@@ -1,0 +1,419 @@
+"""Standalone Rajasthan salary-arrear calculation engine.
+
+The UI in app.py only collects inputs and calls calculate_arrear().
+All arrear calculations live in this module so the other application modules
+remain independent.
+"""
+from __future__ import annotations
+
+import calendar
+from datetime import date
+from typing import Callable, Iterable, Optional
+
+# ---------------------------------------------------------------------------
+# DA / cash-DA / GPF-credit schedule supplied for this application.
+# Each tuple: (effective_year, effective_month, due_da, cash_da, gpf_credit)
+# ---------------------------------------------------------------------------
+DA_RULES = [
+    ((2017, 1), 4.0, 4.0, False),
+    ((2017, 7), 5.0, 5.0, False),
+    ((2018, 1), 7.0, 5.0, True),
+    ((2018, 3), 7.0, 7.0, False),
+    ((2018, 7), 9.0, 7.0, True),
+    ((2018, 9), 9.0, 9.0, False),
+    ((2019, 1), 12.0, 9.0, True),
+    ((2019, 3), 12.0, 12.0, False),
+    ((2019, 7), 17.0, 12.0, True),
+    ((2020, 3), 17.0, 17.0, False),
+    ((2021, 7), 31.0, 28.0, True),
+    ((2021, 10), 31.0, 31.0, False),
+    ((2022, 1), 34.0, 31.0, True),
+    ((2022, 4), 34.0, 34.0, False),
+    ((2022, 7), 38.0, 34.0, True),
+    ((2022, 10), 38.0, 38.0, False),
+    ((2023, 1), 42.0, 38.0, True),
+    ((2023, 4), 42.0, 42.0, False),
+    ((2023, 7), 46.0, 42.0, True),
+    ((2023, 11), 46.0, 46.0, False),
+    ((2024, 1), 50.0, 46.0, True),
+    ((2024, 3), 50.0, 50.0, False),
+    ((2024, 7), 53.0, 50.0, True),
+    ((2024, 11), 53.0, 53.0, False),
+    ((2025, 1), 55.0, 50.0, True),
+    ((2025, 4), 55.0, 55.0, False),
+    ((2025, 7), 58.0, 55.0, True),
+    ((2025, 10), 58.0, 58.0, False),
+    ((2026, 1), 60.0, 58.0, True),
+    ((2026, 5), 60.0, 60.0, False),
+]
+
+# Exact GPF-credit periods supplied by the user.
+GPF_DA_PERIODS = {
+    (2018, 1), (2018, 2),
+    (2018, 7), (2018, 8),
+    (2019, 1), (2019, 2),
+    *{(y, m) for y in (2019,) for m in range(7, 13)},
+    (2020, 1), (2020, 2),
+    (2021, 7), (2021, 8), (2021, 9),
+    (2022, 1), (2022, 2), (2022, 3),
+    (2022, 7), (2022, 8), (2022, 9),
+    (2023, 1), (2023, 2), (2023, 3),
+    (2023, 7), (2023, 8), (2023, 9), (2023, 10),
+    (2024, 1), (2024, 2),
+    (2024, 7), (2024, 8), (2024, 9), (2024, 10),
+    (2025, 1), (2025, 2), (2025, 3),
+    (2025, 7), (2025, 8), (2025, 9),
+    (2026, 1), (2026, 2), (2026, 3), (2026, 4),
+}
+
+
+def _rule_for_month(year: int, month: int):
+    key = (year, month)
+    if year <= 2016:
+        return 0.0, 0.0, False
+    # The supplied schedule has 28% initially and 31% revised from July 2021;
+    # the arrear calculation uses 31% due vs 28% cash for Jul-Sep 2021.
+    if key in {(2021, 7), (2021, 8), (2021, 9)}:
+        return 31.0, 28.0, True
+    selected = None
+    for effective, due, cash, gpf in DA_RULES:
+        if effective <= key:
+            selected = (due, cash, gpf)
+        else:
+            break
+    return selected or (0.0, 0.0, False)
+
+
+def get_da_due_cash_for_month(year: int, month: int):
+    due, cash, gpf = _rule_for_month(year, month)
+    return due, cash, max(0.0, due - cash), gpf and (year, month) in GPF_DA_PERIODS
+
+
+def get_da_rate_for_month(year: int, month: int) -> float:
+    return get_da_due_cash_for_month(year, month)[1]
+
+
+def get_cash_da_rate_for_month(year: int, month: int) -> float:
+    return get_da_rate_for_month(year, month)
+
+
+def get_da_arrear_rate_for_month(year: int, month: int) -> float:
+    due, cash, arrear, gpf = get_da_due_cash_for_month(year, month)
+    return arrear if gpf else 0.0
+
+
+def get_hra_rate(city_type: str, year: int, month: int) -> float:
+    """Keep the existing city-category HRA interface used by the UI."""
+    if (year, month) >= (2024, 11):
+        return 20.0 if city_type == "Classified" else 10.0
+    if (year, month) >= (2021, 7):
+        return 18.0 if city_type == "Classified" else 9.0
+    return 16.0 if city_type == "Classified" else 8.0
+
+
+# User-supplied deduction slabs.
+def get_rghs_deduction_for_basic(basic: int) -> int:
+    basic = int(basic)
+    if basic <= 18000:
+        return 265
+    if basic <= 33500:
+        return 440
+    if basic <= 54000:
+        return 658
+    return 875
+
+
+def get_gpf_minimum_for_basic(basic: int) -> int:
+    basic = int(basic)
+    if basic <= 23100:
+        return 1450
+    if basic <= 28500:
+        return 1625
+    if basic <= 38500:
+        return 2100
+    if basic <= 51500:
+        return 2850
+    if basic <= 62000:
+        return 3575
+    # The supplied table's highest stated slab is ₹72,001–₹80,000 = ₹4,800.
+    # For higher basic, retain the highest stated minimum rather than inventing
+    # a new slab.
+    return 4200 if basic <= 72000 else 4800
+
+
+def get_si_options_for_basic(basic: int) -> list[int]:
+    basic = int(basic)
+    if basic <= 22000:
+        return [800, 1200, 2200]
+    if basic <= 28500:
+        return [1200, 2200, 3000]
+    if basic <= 46500:
+        return [2200, 3000, 5000]
+    if basic <= 72000:
+        return [3000, 5000, 7000]
+    return [5000, 7000]
+
+
+def get_rghs_deduction(pay_level_or_basic, basic: Optional[int] = None) -> int:
+    """Backward-compatible helper: prefer Basic Pay; accept old Level call."""
+    if basic is not None:
+        return get_rghs_deduction_for_basic(int(basic))
+    try:
+        return get_rghs_deduction_for_basic(int(pay_level_or_basic))
+    except (TypeError, ValueError):
+        return 875
+
+
+def has_six_months_service(start_date: date, as_of_date: date) -> bool:
+    """Return True when at least six calendar months have elapsed."""
+    if as_of_date < start_date:
+        return False
+    y, m = as_of_date.year, as_of_date.month - 6
+    while m <= 0:
+        y -= 1
+        m += 12
+    d = min(start_date.day, calendar.monthrange(y, m)[1])
+    return date(y, m, d) <= start_date
+
+
+def get_initial_due_basic(old_pay_level=None, new_pay_level=None, old_basic=None, pay_matrix=None, *args, **kwargs):
+    """Return the automatic initial Due Basic for Promotion/level-change fixation.
+
+    Rule: give one increment in the old level first, then move to the new level
+    and select the first cell strictly higher than that incremented amount.
+    This helper accepts common positional/keyword aliases for compatibility with
+    older app.py versions.
+    """
+    old_pay_level = (kwargs.get("old_pay_level", kwargs.get("old_level",
+                    kwargs.get("previous_pay_level", old_pay_level))))
+    new_pay_level = (kwargs.get("new_pay_level", kwargs.get("new_level",
+                    kwargs.get("after_pay_level", new_pay_level))))
+    old_basic = kwargs.get("old_basic", kwargs.get("drawn_basic",
+                kwargs.get("previous_basic", kwargs.get("basic", old_basic))))
+    pay_matrix = kwargs.get("pay_matrix", kwargs.get("matrix", pay_matrix))
+
+    # Compatibility for calls such as get_initial_due_basic(old_level, new_level, basic, matrix)
+    if args:
+        vals = list(args)
+        if old_pay_level is None and vals: old_pay_level = vals.pop(0)
+        if new_pay_level is None and vals: new_pay_level = vals.pop(0)
+        if old_basic is None and vals: old_basic = vals.pop(0)
+        if pay_matrix is None and vals: pay_matrix = vals.pop(0)
+
+    if not old_pay_level or not new_pay_level or old_basic is None or pay_matrix is None:
+        raise ValueError("Automatic Due Basic के लिए Old Level, New Level, Old Basic और Pay Matrix आवश्यक हैं।")
+
+    old_after_increment = next_pay_step(pay_matrix, str(old_pay_level), int(old_basic))
+    new_matrix = pay_matrix.get(str(new_pay_level), [])
+    for value in new_matrix:
+        if int(value) > int(old_after_increment):
+            return int(value)
+    return int(old_after_increment)
+
+
+def next_pay_step(pay_matrix: dict, level: str, basic: int) -> int:
+    matrix = pay_matrix.get(level, [])
+    if not matrix:
+        return int(basic)
+    basic = int(basic)
+    if basic in matrix:
+        i = matrix.index(basic)
+        return matrix[min(i + 1, len(matrix) - 1)]
+    for value in matrix:
+        if value > basic:
+            return value
+    return matrix[-1]
+
+
+def _month_range(start_date: date, end_date: date):
+    y, m = start_date.year, start_date.month
+    while (y, m) <= (end_date.year, end_date.month):
+        yield y, m
+        if m == 12:
+            y, m = y + 1, 1
+        else:
+            m += 1
+
+
+def _round_rupee(value: float) -> int:
+    return int(round(float(value)))
+
+
+def _nonnegative_difference(due: float, drawn: float, factor: float) -> int:
+    return max(0, _round_rupee((float(due) - float(drawn)) * factor))
+
+
+def calculate_arrear(
+    *,
+    start_date: date,
+    end_date: date,
+    old_pay_level: str,
+    new_pay_level: str,
+    drawn_basic: int,
+    due_basic: int,
+    increment_month: Optional[int],
+    increment_received_old: str,
+    missed_increment_dates: Iterable[date],
+    pay_matrix: dict,
+    city_type: str,
+    drawn_gpf: int,
+    drawn_si: int,
+    drawn_rghs: int,
+    income_tax: int,
+    other_deduction: int,
+    due_si_option: Optional[int] = None,
+    due_gpf_override: Optional[int] = None,
+    due_rghs_override: Optional[int] = None,
+    initial_due_fixation_applied: bool = False,
+    **kwargs,
+):
+    """Calculate month-wise arrear rows and totals.
+
+    The single start_date is simultaneously the arrear start and effective/
+    affected date. When levels differ, drawn remains on old level and due on
+    new level from that date onward.
+    """
+    if start_date > end_date:
+        raise ValueError("एरियर प्रारंभ/प्रभावी दिनांक समाप्ति दिनांक से बाद की नहीं हो सकती।")
+
+    old_level = old_pay_level
+    new_level = new_pay_level
+    missed = {d for d in missed_increment_dates}
+
+    cur_drawn = int(drawn_basic)
+    cur_due = int(due_basic)
+    rows = []
+
+    totals = {
+        "diff_total": 0,
+        "diff_basic": 0,
+        "diff_da": 0,
+        "diff_hra": 0,
+        "diff_gpf": 0,
+        "diff_si": 0,
+        "diff_rghs": 0,
+        "gpf_deposit": 0,
+        "income_tax": 0,
+        "other_deduction": 0,
+        "net_payable": 0,
+    }
+
+    month_names = ["जनवरी", "फरवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितम्बर", "अक्टूबर", "नवम्बर", "दिसम्बर"]
+
+    for year, month in _month_range(start_date, end_date):
+        m_start = date(year, month, 1)
+        days_in_month = calendar.monthrange(year, month)[1]
+        m_end = date(year, month, days_in_month)
+        actual_start = max(start_date, m_start)
+        actual_end = min(end_date, m_end)
+        if actual_start > actual_end:
+            continue
+        days = (actual_end - actual_start).days + 1
+        factor = days / days_in_month
+
+        due_da_pct, cash_da_pct, da_arrear_pct, gpf_applicable = get_da_due_cash_for_month(year, month)
+        hra_pct = get_hra_rate(city_type, year, month)
+
+        # Increment is effective from the FIRST DAY of the increment month.
+        # Therefore apply it BEFORE calculating that month's row.
+        # This fixes the previous behaviour where a July increment appeared
+        # for the first time in August.
+        if increment_month and month == increment_month:
+            inc_date = date(year, month, 1)
+            if increment_received_old == "हाँ" or inc_date not in missed:
+                cur_drawn = next_pay_step(pay_matrix, old_level, cur_drawn)
+
+            # Due increment follows the employee's selected increment month directly.
+            # January -> January; July -> July. Do not impose an extra six-month
+            # service gate here; the selected increment date controls eligibility.
+            cur_due = next_pay_step(pay_matrix, new_level, cur_due)
+
+        # Calculate every component from the actual monthly basic and factor.
+        d_basic = _round_rupee(cur_drawn * factor)
+        u_basic = _round_rupee(cur_due * factor)
+        d_da = _round_rupee(cur_drawn * cash_da_pct / 100.0 * factor)
+        u_da = _round_rupee(cur_due * due_da_pct / 100.0 * factor)
+        d_hra = _round_rupee(cur_drawn * hra_pct / 100.0 * factor)
+        u_hra = _round_rupee(cur_due * hra_pct / 100.0 * factor)
+        d_gross = d_basic + d_da + d_hra
+        u_gross = u_basic + u_da + u_hra
+
+        diff_basic = u_basic - d_basic
+        diff_da = u_da - d_da
+        diff_hra = u_hra - d_hra
+        diff_total = diff_basic + diff_da + diff_hra
+
+        due_gpf = int(due_gpf_override) if due_gpf_override is not None else get_gpf_minimum_for_basic(cur_due)
+        due_rghs = int(due_rghs_override) if due_rghs_override is not None else get_rghs_deduction_for_basic(cur_due)
+        si_options = get_si_options_for_basic(cur_due)
+        due_si = int(due_si_option) if due_si_option is not None else si_options[0]
+
+        diff_gpf = _nonnegative_difference(due_gpf, drawn_gpf, factor)
+        diff_si = _nonnegative_difference(due_si, drawn_si, factor)
+        diff_rghs = _nonnegative_difference(due_rghs, drawn_rghs, factor)
+        gpf_deposit = _round_rupee(cur_due * da_arrear_pct / 100.0 * factor) if gpf_applicable else 0
+        it_val = _round_rupee(income_tax * factor)
+        oth_val = _round_rupee(other_deduction * factor)
+        deduction_total = diff_gpf + diff_si + diff_rghs + gpf_deposit + it_val + oth_val
+        net_payable = diff_total - deduction_total
+
+        row = {
+            "serial": len(rows) + 1,
+            "month_year": f"{month_names[month-1]} {year}",
+            "worked_days": days,
+            "days_in_month": days_in_month,
+            "da_pct": due_da_pct,
+            "cash_da_pct": cash_da_pct,
+            "hra_pct": hra_pct,
+            "drawn_level": old_level,
+            "due_level": new_level,
+            "drawn_basic": d_basic,
+            "drawn_da": d_da,
+            "drawn_hra": d_hra,
+            "drawn_gross": d_gross,
+            "due_basic": u_basic,
+            "due_da": u_da,
+            "due_hra": u_hra,
+            "due_gross": u_gross,
+            "diff_basic": diff_basic,
+            "diff_da": diff_da,
+            "diff_hra": diff_hra,
+            "diff_total": diff_total,
+            "diff_gpf": diff_gpf,
+            "diff_si": diff_si,
+            "diff_rghs": diff_rghs,
+            "gpf_deposit": gpf_deposit,
+            "income_tax": it_val,
+            "other_ded": oth_val,
+            "deduction_total": deduction_total,
+            "net_payable": net_payable,
+            "due_gpf": due_gpf,
+            "due_si": due_si,
+            "due_rghs": due_rghs,
+        }
+        rows.append(row)
+
+        totals["diff_total"] += diff_total
+        totals["diff_basic"] += diff_basic
+        totals["diff_da"] += diff_da
+        totals["diff_hra"] += diff_hra
+        totals["diff_gpf"] += diff_gpf
+        totals["diff_si"] += diff_si
+        totals["diff_rghs"] += diff_rghs
+        totals["gpf_deposit"] += gpf_deposit
+        totals["income_tax"] += it_val
+        totals["other_deduction"] += oth_val
+        totals["net_payable"] += net_payable
+
+    # Reconciliation is constructed from the same displayed components.
+    component_total = totals["diff_basic"] + totals["diff_da"] + totals["diff_hra"]
+    gross_total = totals["diff_total"]
+    reconciliation = {
+        "gross_difference": _round_rupee(gross_total),
+        "component_difference": _round_rupee(component_total),
+        "difference": _round_rupee(gross_total - component_total),
+        "is_valid": _round_rupee(gross_total - component_total) == 0,
+    }
+
+    totals = {k: _round_rupee(v) for k, v in totals.items()}
+    return {"monthly_rows": rows, "totals": totals, "reconciliation": reconciliation}
