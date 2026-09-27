@@ -3,7 +3,8 @@ import base64
 import math
 import os
 import json
-from datetime import datetime
+import calendar
+from datetime import datetime, date
 
 # 1. पेज कॉन्फ़िगरेशन
 st.set_page_config(
@@ -16,6 +17,7 @@ st.set_page_config(
 PL_DATA_FILE = os.path.join("output", "saved_pl_data.json")
 INC_DATA_FILE = os.path.join("output", "saved_increment_data.json")
 SAN_DATA_FILE = os.path.join("output", "saved_sanchalan_data.json")
+ARREAR_DATA_FILE = os.path.join("output", "saved_arrear_data.json")
 MASTER_VENDORS_FILE = "master_vendors.json"
 MASTER_SCHOOLS_FILE = "master_schools.json"
 MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
@@ -60,9 +62,9 @@ DESIG_LIST = [
 ]
 
 DA_PRESETS = {
-    "7th Pay Commission": ["60%","58%", "55%", "53%", "50%", "46%", "42%", "38%", "34%", "31%", "28%", "17%", "12%", "9%", "7%", "5%", "4%", "2%", "0%"],
-    "6th Pay Commission": ["262%","257%","246%", "239%", "230%", "221%", "212%", "203%", "196%", "189%", "164%", "154%", "142%", "132%", "125%", "119%", "113%", "107%", "100%"],
-    "5th Pay Commission": ["483%","474%","443%" "427%", "412%", "398%", "381%", "368%", "356%", "341%", "324%", "305%", "295%", "250%", "200%"]
+    "7th Pay Commission": ["60%", "58%", "55%", "53%", "50%", "46%", "42%", "38%", "34%", "31%", "17%", "12%", "9%", "7%", "5%", "4%"],
+    "6th Pay Commission": ["246%", "239%", "230%", "221%", "212%", "203%", "196%", "189%", "164%", "154%", "142%", "132%", "125%", "119%", "113%", "107%", "100%"],
+    "5th Pay Commission": ["443%", "427%", "412%", "398%", "381%", "368%", "356%", "341%", "324%", "305%", "295%", "250%", "200%"]
 }
 
 PAY_MATRIX_7TH = {
@@ -112,23 +114,57 @@ SNA_COMPONENTS = {
     ]
 }
 
-def get_calculated_next_pay(comm, lvl, cur_b):
-    if "7th" in comm:
-        col = PAY_MATRIX_7TH.get(lvl, [])
-        if cur_b in col:
-            idx = col.index(cur_b)
-            return col[min(idx + 1, len(col) - 1)]
-        else:
-            for step in col:
-                if step > cur_b:
-                    return step
-            return col[-1] if col else cur_b
-    elif "6th" in comm:
-        inc = round(cur_b * 0.03)
-        rem = (cur_b + inc) % 10
-        return (cur_b + inc) if rem == 0 else (cur_b + inc + (10 - rem))
-    else:
-        return cur_b + round(cur_b * 0.03)
+ARREAR_REASONS = [
+    "प्रमोशन (Promotion)",
+    "एसीपी / एमएसीपी (ACP / MACP)",
+    "वेतन निर्धारण उपरांत (Pay Fixation)",
+    "वेतन वृद्धि के कारण (Due to Annual Increment)",
+    "पीएल सरेंडर डीए एरियर (PL Surrender DA Arrear)",
+    "सेवानिवृत्ति पश्चात पीएल नगद भुगतान एरियर (Retirement PL Cash Payment Arrear)",
+    "अन्य प्रशासनिक कारण (Other Administrative Reason)"
+]
+
+
+# राष्ट्रीयकृत बैंकों की सूची — Arrear Module dropdown
+NATIONALIZED_BANKS = [
+    "State Bank of India",
+    "Bank of Baroda",
+    "Bank of India",
+    "Bank of Maharashtra",
+    "Canara Bank",
+    "Central Bank of India",
+    "Indian Bank",
+    "Indian Overseas Bank",
+    "Punjab & Sind Bank",
+    "Punjab National Bank",
+    "UCO Bank",
+    "Union Bank of India",
+]
+
+# Arrear calculation engine is integrated below; no external arrear module import is required.
+
+
+
+def get_next_pay_step(level_str, current_basic):
+    # Existing Annual Increment module helper; arrear calculation itself is
+    # implemented only in arrear_calculation.py.
+    matrix = PAY_MATRIX_7TH.get(level_str, [])
+    current_basic = int(current_basic)
+    if current_basic in matrix:
+        idx = matrix.index(current_basic)
+        return matrix[min(idx + 1, len(matrix) - 1)]
+    for val in matrix:
+        if val > current_basic:
+            return val
+    return matrix[-1] if matrix else current_basic
+
+
+def get_calculated_next_pay(commission, level_str, current_basic):
+    """Annual-increment helper used by the existing Annual Increment module."""
+    if "7th" in str(commission):
+        return get_next_pay_step(level_str, int(current_basic))
+    return int(current_basic)
+
 
 def make_short_name(full_name):
     if not full_name:
@@ -278,29 +314,36 @@ st.markdown("""
 
     .menu-btn-pl {
         display: block; width: 100%; background-color: #1f618d; color: #ffffff !important;
-        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
-        border-radius: 8px; border: 2px solid #2980b9; box-shadow: 0 5px 0 #154360; margin-bottom: 14px; text-align: left;
+        text-decoration: none !important; padding: 14px 20px; font-size: 16px; font-weight: bold;
+        border-radius: 8px; border: 2px solid #2980b9; box-shadow: 0 4px 0 #154360; margin-bottom: 12px; text-align: left;
     }
     .menu-btn-pl:hover { background-color: #2980b9; }
 
     .menu-btn-inc {
         display: block; width: 100%; background-color: #27ae60; color: #ffffff !important;
-        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
-        border-radius: 8px; border: 2px solid #2ecc71; box-shadow: 0 5px 0 #1e8449; margin-bottom: 14px; text-align: left;
+        text-decoration: none !important; padding: 14px 20px; font-size: 16px; font-weight: bold;
+        border-radius: 8px; border: 2px solid #2ecc71; box-shadow: 0 4px 0 #1e8449; margin-bottom: 12px; text-align: left;
     }
     .menu-btn-inc:hover { background-color: #2ecc71; }
 
     .menu-btn-san {
         display: block; width: 100%; background-color: #8e44ad; color: #ffffff !important;
-        text-decoration: none !important; padding: 15px 20px; font-size: 17px; font-weight: bold;
-        border-radius: 8px; border: 2px solid #9b59b6; box-shadow: 0 5px 0 #512e5f; margin-bottom: 14px; text-align: left;
+        text-decoration: none !important; padding: 14px 20px; font-size: 16px; font-weight: bold;
+        border-radius: 8px; border: 2px solid #9b59b6; box-shadow: 0 4px 0 #512e5f; margin-bottom: 12px; text-align: left;
     }
     .menu-btn-san:hover { background-color: #9b59b6; }
 
+    .menu-btn-arr {
+        display: block; width: 100%; background-color: #d35400; color: #ffffff !important;
+        text-decoration: none !important; padding: 14px 20px; font-size: 16px; font-weight: bold;
+        border-radius: 8px; border: 2px solid #e67e22; box-shadow: 0 4px 0 #a04000; margin-bottom: 12px; text-align: left;
+    }
+    .menu-btn-arr:hover { background-color: #e67e22; }
+
     .menu-btn-rel {
         display: block; width: 100%; background-color: #212f3d; color: #a6acaf !important;
-        text-decoration: none !important; padding: 13px 20px; font-size: 15px; border-radius: 8px;
-        border: 1px solid #34495e; box-shadow: 0 4px 0 #17202a; text-align: left;
+        text-decoration: none !important; padding: 12px 20px; font-size: 15px; border-radius: 8px;
+        border: 1px solid #34495e; box-shadow: 0 3px 0 #17202a; text-align: left;
     }
 
     .back-btn {
@@ -362,6 +405,424 @@ active_page = params.get("page", "dashboard")
 # =============================================================================
 # पृष्ठ 1: मुख्य डैशबोर्ड
 # =============================================================================
+
+# ---------------------------------------------------------------------------
+# Integrated arrear helper: initial Due Basic / Pay Fixation
+# ---------------------------------------------------------------------------
+def get_initial_due_basic(*, reason, old_level, new_level, drawn_basic, pay_matrix):
+    """Automatic initial Due Basic for Promotion/ACP-MACP.
+
+    Promotion/ACP-MACP level change: one increment in old level, then the
+    first strictly higher cell in the new level. Same level: one increment
+    in the same level. Pay Fixation remains manual in the UI.
+    """
+    reason_text = str(reason or '')
+    old_level = str(old_level or '')
+    new_level = str(new_level or '')
+    basic = int(drawn_basic or 0)
+    is_auto = ('Promotion' in reason_text or 'ACP / MACP' in reason_text)
+    if not is_auto:
+        return basic
+    old_matrix = pay_matrix.get(old_level, []) or []
+    new_matrix = pay_matrix.get(new_level, []) or []
+    if not old_matrix or not new_matrix:
+        return basic
+    if basic in old_matrix:
+        i = old_matrix.index(basic)
+        fixed_old = old_matrix[min(i + 1, len(old_matrix) - 1)]
+    else:
+        higher = [v for v in old_matrix if v > basic]
+        fixed_old = higher[0] if higher else old_matrix[-1]
+    if old_level == new_level:
+        return int(fixed_old)
+    for value in new_matrix:
+        if value > fixed_old:
+            return int(value)
+    return int(new_matrix[-1])
+
+DA_RULES = [
+    ((2017, 1), 4.0, 4.0, False),
+    ((2017, 7), 5.0, 5.0, False),
+    ((2018, 1), 7.0, 5.0, True),
+    ((2018, 3), 7.0, 7.0, False),
+    ((2018, 7), 9.0, 7.0, True),
+    ((2018, 9), 9.0, 9.0, False),
+    ((2019, 1), 12.0, 9.0, True),
+    ((2019, 3), 12.0, 12.0, False),
+    ((2019, 7), 17.0, 12.0, True),
+    ((2020, 3), 17.0, 17.0, False),
+    ((2021, 7), 31.0, 28.0, True),
+    ((2021, 10), 31.0, 31.0, False),
+    ((2022, 1), 34.0, 31.0, True),
+    ((2022, 4), 34.0, 34.0, False),
+    ((2022, 7), 38.0, 34.0, True),
+    ((2022, 10), 38.0, 38.0, False),
+    ((2023, 1), 42.0, 38.0, True),
+    ((2023, 4), 42.0, 42.0, False),
+    ((2023, 7), 46.0, 42.0, True),
+    ((2023, 11), 46.0, 46.0, False),
+    ((2024, 1), 50.0, 46.0, True),
+    ((2024, 3), 50.0, 50.0, False),
+    ((2024, 7), 53.0, 50.0, True),
+    ((2024, 11), 53.0, 53.0, False),
+    ((2025, 1), 55.0, 50.0, True),
+    ((2025, 4), 55.0, 55.0, False),
+    ((2025, 7), 58.0, 55.0, True),
+    ((2025, 10), 58.0, 58.0, False),
+    ((2026, 1), 60.0, 58.0, True),
+    ((2026, 5), 60.0, 60.0, False),
+]
+
+# Exact GPF-credit periods supplied by the user.
+GPF_DA_PERIODS = {
+    (2018, 1), (2018, 2),
+    (2018, 7), (2018, 8),
+    (2019, 1), (2019, 2),
+    *{(y, m) for y in (2019,) for m in range(7, 13)},
+    (2020, 1), (2020, 2),
+    (2021, 7), (2021, 8), (2021, 9),
+    (2022, 1), (2022, 2), (2022, 3),
+    (2022, 7), (2022, 8), (2022, 9),
+    (2023, 1), (2023, 2), (2023, 3),
+    (2023, 7), (2023, 8), (2023, 9), (2023, 10),
+    (2024, 1), (2024, 2),
+    (2024, 7), (2024, 8), (2024, 9), (2024, 10),
+    (2025, 1), (2025, 2), (2025, 3),
+    (2025, 7), (2025, 8), (2025, 9),
+    (2026, 1), (2026, 2), (2026, 3), (2026, 4),
+}
+
+
+def _rule_for_month(year: int, month: int):
+    key = (year, month)
+    if year <= 2016:
+        return 0.0, 0.0, False
+    # The supplied schedule has 28% initially and 31% revised from July 2021;
+    # the arrear calculation uses 31% due vs 28% cash for Jul-Sep 2021.
+    if key in {(2021, 7), (2021, 8), (2021, 9)}:
+        return 31.0, 28.0, True
+    selected = None
+    for effective, due, cash, gpf in DA_RULES:
+        if effective <= key:
+            selected = (due, cash, gpf)
+        else:
+            break
+    return selected or (0.0, 0.0, False)
+
+
+def get_da_due_cash_for_month(year: int, month: int):
+    due, cash, gpf = _rule_for_month(year, month)
+    return due, cash, max(0.0, due - cash), gpf and (year, month) in GPF_DA_PERIODS
+
+
+def get_da_rate_for_month(year: int, month: int) -> float:
+    return get_da_due_cash_for_month(year, month)[1]
+
+
+def get_cash_da_rate_for_month(year: int, month: int) -> float:
+    return get_da_rate_for_month(year, month)
+
+
+def get_da_arrear_rate_for_month(year: int, month: int) -> float:
+    due, cash, arrear, gpf = get_da_due_cash_for_month(year, month)
+    return arrear if gpf else 0.0
+
+
+def get_hra_rate(city_type: str, year: int, month: int) -> float:
+    """Keep the existing city-category HRA interface used by the UI."""
+    if (year, month) >= (2024, 11):
+        return 20.0 if city_type == "Classified" else 10.0
+    if (year, month) >= (2021, 7):
+        return 18.0 if city_type == "Classified" else 9.0
+    return 16.0 if city_type == "Classified" else 8.0
+
+
+# User-supplied deduction slabs.
+def get_rghs_deduction_for_basic(basic: int) -> int:
+    basic = int(basic)
+    if basic <= 18000:
+        return 265
+    if basic <= 33500:
+        return 440
+    if basic <= 54000:
+        return 658
+    return 875
+
+
+def get_gpf_minimum_for_basic(basic: int) -> int:
+    basic = int(basic)
+    if basic <= 23100:
+        return 1450
+    if basic <= 28500:
+        return 1625
+    if basic <= 38500:
+        return 2100
+    if basic <= 51500:
+        return 2850
+    if basic <= 62000:
+        return 3575
+    # The supplied table's highest stated slab is ₹72,001–₹80,000 = ₹4,800.
+    # For higher basic, retain the highest stated minimum rather than inventing
+    # a new slab.
+    return 4200 if basic <= 72000 else 4800
+
+
+def get_si_options_for_basic(basic: int) -> list[int]:
+    basic = int(basic)
+    if basic <= 22000:
+        return [800, 1200, 2200]
+    if basic <= 28500:
+        return [1200, 2200, 3000]
+    if basic <= 46500:
+        return [2200, 3000, 5000]
+    if basic <= 72000:
+        return [3000, 5000, 7000]
+    return [5000, 7000]
+
+
+def get_rghs_deduction(pay_level_or_basic, basic: Optional[int] = None) -> int:
+    """Backward-compatible helper: prefer Basic Pay; accept old Level call."""
+    if basic is not None:
+        return get_rghs_deduction_for_basic(int(basic))
+    try:
+        return get_rghs_deduction_for_basic(int(pay_level_or_basic))
+    except (TypeError, ValueError):
+        return 875
+
+
+def has_six_months_service(start_date: date, as_of_date: date) -> bool:
+    """Return True when at least six calendar months have elapsed."""
+    if as_of_date < start_date:
+        return False
+    y, m = as_of_date.year, as_of_date.month - 6
+    while m <= 0:
+        y -= 1
+        m += 12
+    d = min(start_date.day, calendar.monthrange(y, m)[1])
+    return date(y, m, d) <= start_date
+
+
+def next_pay_step(pay_matrix: dict, level: str, basic: int) -> int:
+    matrix = pay_matrix.get(level, [])
+    if not matrix:
+        return int(basic)
+    basic = int(basic)
+    if basic in matrix:
+        i = matrix.index(basic)
+        return matrix[min(i + 1, len(matrix) - 1)]
+    for value in matrix:
+        if value > basic:
+            return value
+    return matrix[-1]
+
+
+def _month_range(start_date: date, end_date: date):
+    y, m = start_date.year, start_date.month
+    while (y, m) <= (end_date.year, end_date.month):
+        yield y, m
+        if m == 12:
+            y, m = y + 1, 1
+        else:
+            m += 1
+
+
+def _round_rupee(value: float) -> int:
+    return int(round(float(value)))
+
+
+def _nonnegative_difference(due: float, drawn: float, factor: float) -> int:
+    return max(0, _round_rupee((float(due) - float(drawn)) * factor))
+
+
+def calculate_arrear(
+    *,
+    start_date: date,
+    end_date: date,
+    old_pay_level: str,
+    new_pay_level: str,
+    drawn_basic: int,
+    due_basic: int,
+    increment_month: Optional[int],
+    increment_received_old: str,
+    missed_increment_dates: Iterable[date],
+    pay_matrix: dict,
+    city_type: str,
+    drawn_gpf: int,
+    drawn_si: int,
+    drawn_rghs: int,
+    income_tax: int,
+    other_deduction: int,
+    due_si_option: Optional[int] = None,
+    due_gpf_override: Optional[int] = None,
+    due_rghs_override: Optional[int] = None,
+    initial_due_fixation_applied: bool = False,
+):
+    """Calculate month-wise arrear rows and totals.
+
+    The single start_date is simultaneously the arrear start and effective/
+    affected date. When levels differ, drawn remains on old level and due on
+    new level from that date onward.
+    """
+    if start_date > end_date:
+        raise ValueError("एरियर प्रारंभ/प्रभावी दिनांक समाप्ति दिनांक से बाद की नहीं हो सकती।")
+
+    old_level = old_pay_level
+    new_level = new_pay_level
+    missed = {d for d in missed_increment_dates}
+
+    cur_drawn = int(drawn_basic)
+    cur_due = int(due_basic)
+    rows = []
+
+    totals = {
+        "diff_total": 0,
+        "diff_basic": 0,
+        "diff_da": 0,
+        "diff_hra": 0,
+        "diff_gpf": 0,
+        "diff_si": 0,
+        "diff_rghs": 0,
+        "gpf_deposit": 0,
+        "income_tax": 0,
+        "other_deduction": 0,
+        "net_payable": 0,
+    }
+
+    month_names = ["जनवरी", "फरवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितम्बर", "अक्टूबर", "नवम्बर", "दिसम्बर"]
+
+    for year, month in _month_range(start_date, end_date):
+        m_start = date(year, month, 1)
+        days_in_month = calendar.monthrange(year, month)[1]
+        m_end = date(year, month, days_in_month)
+        actual_start = max(start_date, m_start)
+        actual_end = min(end_date, m_end)
+        if actual_start > actual_end:
+            continue
+        days = (actual_end - actual_start).days + 1
+        factor = days / days_in_month
+
+        due_da_pct, cash_da_pct, da_arrear_pct, gpf_applicable = get_da_due_cash_for_month(year, month)
+        hra_pct = get_hra_rate(city_type, year, month)
+
+        # ------------------------------------------------------------
+        # Annual increment rule (Rajasthan / 7th Pay Matrix):
+        # The selected increment month is effective from the FIRST DAY
+        # of that month. Therefore the increment MUST be applied BEFORE
+        # calculating that month's Due/Drawn basic.
+        #
+        # Due side: every selected Jan/Jul increment is automatic.
+        # Drawn side: it is automatic unless the operator explicitly
+        # selected that particular increment date as a missed increment.
+        # ------------------------------------------------------------
+        if increment_month and month == increment_month:
+            inc_date = date(year, month, 1)
+
+            # Due pay: never skip the annual increment merely because the
+            # employee's arrear starts in the increment month. The Due
+            # salary for that month is the post-increment cell.
+            cur_due = next_pay_step(pay_matrix, new_level, cur_due)
+
+            # Drawn pay: skip ONLY the dates explicitly marked as missed.
+            if increment_received_old == "हाँ" or inc_date not in missed:
+                cur_drawn = next_pay_step(pay_matrix, old_level, cur_drawn)
+
+        # Calculate every component from the actual monthly basic and factor
+        # AFTER applying the increment effective on the first day of this
+        # month. This prevents a July increment from appearing in August.
+        d_basic = _round_rupee(cur_drawn * factor)
+        u_basic = _round_rupee(cur_due * factor)
+        d_da = _round_rupee(cur_drawn * cash_da_pct / 100.0 * factor)
+        u_da = _round_rupee(cur_due * due_da_pct / 100.0 * factor)
+        d_hra = _round_rupee(cur_drawn * hra_pct / 100.0 * factor)
+        u_hra = _round_rupee(cur_due * hra_pct / 100.0 * factor)
+        d_gross = d_basic + d_da + d_hra
+        u_gross = u_basic + u_da + u_hra
+
+        # Arrear payable cannot be negative. If drawn exceeds due for any
+        # component, no negative arrear is created for that component.
+        diff_basic = max(0, u_basic - d_basic)
+        diff_da = max(0, u_da - d_da)
+        diff_hra = max(0, u_hra - d_hra)
+        diff_total = diff_basic + diff_da + diff_hra
+
+        due_gpf = int(due_gpf_override) if due_gpf_override is not None else get_gpf_minimum_for_basic(cur_due)
+        due_rghs = int(due_rghs_override) if due_rghs_override is not None else get_rghs_deduction_for_basic(cur_due)
+        si_options = get_si_options_for_basic(cur_due)
+        due_si = int(due_si_option) if due_si_option is not None else si_options[0]
+
+        diff_gpf = _nonnegative_difference(due_gpf, drawn_gpf, factor)
+        diff_si = _nonnegative_difference(due_si, drawn_si, factor)
+        diff_rghs = _nonnegative_difference(due_rghs, drawn_rghs, factor)
+        basic_difference_for_gpf = max(0.0, cur_due - cur_drawn)
+        gpf_deposit = _round_rupee(basic_difference_for_gpf * da_arrear_pct / 100.0 * factor) if gpf_applicable else 0
+        it_val = _round_rupee(income_tax * factor)
+        oth_val = _round_rupee(other_deduction * factor)
+        deduction_total = diff_gpf + diff_si + diff_rghs + gpf_deposit + it_val + oth_val
+        # Net arrear payable must never become negative. If total deductions
+        # exceed the gross arrear, payable difference is treated as zero.
+        net_payable = max(0, diff_total - deduction_total)
+
+        row = {
+            "serial": len(rows) + 1,
+            "month_year": f"{month_names[month-1]} {year}",
+            "worked_days": days,
+            "days_in_month": days_in_month,
+            "da_pct": due_da_pct,
+            "cash_da_pct": cash_da_pct,
+            "hra_pct": hra_pct,
+            "drawn_level": old_level,
+            "due_level": new_level,
+            "drawn_basic": d_basic,
+            "drawn_da": d_da,
+            "drawn_hra": d_hra,
+            "drawn_gross": d_gross,
+            "due_basic": u_basic,
+            "due_da": u_da,
+            "due_hra": u_hra,
+            "due_gross": u_gross,
+            "diff_basic": diff_basic,
+            "diff_da": diff_da,
+            "diff_hra": diff_hra,
+            "diff_total": diff_total,
+            "diff_gpf": diff_gpf,
+            "diff_si": diff_si,
+            "diff_rghs": diff_rghs,
+            "gpf_deposit": gpf_deposit,
+            "income_tax": it_val,
+            "other_ded": oth_val,
+            "deduction_total": deduction_total,
+            "net_payable": net_payable,
+            "due_gpf": due_gpf,
+            "due_si": due_si,
+            "due_rghs": due_rghs,
+        }
+        rows.append(row)
+
+        totals["diff_total"] += diff_total
+        totals["diff_basic"] += diff_basic
+        totals["diff_da"] += diff_da
+        totals["diff_hra"] += diff_hra
+        totals["diff_gpf"] += diff_gpf
+        totals["diff_si"] += diff_si
+        totals["diff_rghs"] += diff_rghs
+        totals["gpf_deposit"] += gpf_deposit
+        totals["income_tax"] += it_val
+        totals["other_deduction"] += oth_val
+        totals["net_payable"] += net_payable
+
+    # Reconciliation is constructed from the same displayed components.
+    component_total = totals["diff_basic"] + totals["diff_da"] + totals["diff_hra"]
+    gross_total = totals["diff_total"]
+    reconciliation = {
+        "gross_difference": _round_rupee(gross_total),
+        "component_difference": _round_rupee(component_total),
+        "difference": _round_rupee(gross_total - component_total),
+        "is_valid": _round_rupee(gross_total - component_total) == 0,
+    }
+
+    totals = {k: _round_rupee(v) for k, v in totals.items()}
+    return {"monthly_rows": rows, "totals": totals, "reconciliation": reconciliation}
+
 if active_page == "dashboard":
     st.markdown("""
     <div class="main-header">
@@ -397,7 +858,7 @@ if active_page == "dashboard":
         st.markdown("""
         <div class="scope-box">
             <span style="color: #f4d03f; font-weight: bold; font-size: 15px;">सॉफ्टवेयर के कार्य एवं भावी विस्तार योजना:</span><br>
-            <span style="color: #2ecc71;">✔ वर्तमान क्षमताएं:</span> उपार्जित अवकाश (PL Surrender) की सटीक नियमानुसार ऑटो-कैलकुलेशन, वार्षिक सामयिक वेतन वृद्धि (Annual Increment - जनवरी एवं जुलाई चक्र) आदेश 7th पे-मैट्रिक्स स्वतः गणना, संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Payment Sanction Order), मल्टीपल कार्मिक/वेंडर प्रविष्टि, लैंडस्केप व पोर्ट्रेट सटीक बॉर्डर प्रिंट आदेश[cite: 5].<br>
+            <span style="color: #2ecc71;">✔ वर्तमान क्षमताएं:</span> उपार्जित अवकाश (PL Surrender) की सटीक नियमानुसार ऑटो-कैलकुलेशन, वार्षिक सामयिक वेतन वृद्धि (Annual Increment) आदेश, संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order), <b>7th Pay Commission आधारित लैंडस्केप रो-वाइज वेतन एरियर (Salary Arrear) गणना एवं अंतर विवरण प्रपत्र</b>, मल्टीपल कार्मिक/वेंडर प्रविष्टि, A4 लैंडस्केप बॉर्डर प्रिंट आदेश.<br>
             <span style="color: #f39c12;">🚀 भविष्य में संभावित कार्य:</span> कार्यमुक्ति (Relieving) व कार्यग्रहण (Joining) आदेश, बाल देखरेख अवकाश (CCL) स्वीकृति, स्थायीकरण (Confirmation) आदेश तथा समस्त वित्तीय व प्रशासनिक स्वीकृतियों का केंद्रीकृत स्वचालन।
         </div>
         """, unsafe_allow_html=True)
@@ -414,8 +875,11 @@ if active_page == "dashboard":
         <a href="/?page=sanchalan_portal" target="_self" class="menu-btn-san">
             3. संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order) जनरेटर ▶
         </a>
+        <a href="/?page=salary_arrear" target="_self" class="menu-btn-arr">
+            4. वेतन एरियर (Salary Arrear) अंतर विवरण प्रपत्र एवं गणना (7th CPC Landscape) ▶
+        </a>
         <div class="menu-btn-rel">
-            4. कार्यमुक्ति / कार्यग्रहण (Relieving / Joining) आदेश [शीघ्र उपलब्ध]
+            5. कार्यमुक्ति / कार्यग्रहण (Relieving / Joining) आदेश [शीघ्र उपलब्ध]
         </div>
         """, unsafe_allow_html=True)
 
@@ -459,10 +923,8 @@ elif active_page == "pl_surrender":
         pl_treasury = st.text_input("उपकोष कार्यालय:", saved_pl_off.get("sub_treasury", "सांभर लेक"), key="w_pl_tr")
 
     st.markdown("<hr style='border-color: #1b4f72; margin: 12px 0;'>", unsafe_allow_html=True)
-
     st.markdown("<h5 style='color:#5dade2; margin-bottom: 4px;'>२. कर्मचारी प्रविष्टि विवरण</h5>", unsafe_allow_html=True)
     
-    # स्ट्रीमलिट के फॉर्म नियम के अनुसार वेतन आयोग व DA चयन को फॉर्म के बाहर रखा गया है
     e1, e2, e3 = st.columns(3)
     with e1:
         pl_emp_name = st.text_input("कर्मचारी का नाम:", key="w_pl_name")
@@ -615,7 +1077,7 @@ elif active_page == "pl_surrender":
           .sig-container {{ width: 100%; display: flex; justify-content: flex-end; margin-bottom: 10px; }}
           .sig-box {{ text-align: center; min-width: 230px; line-height: 1.35; }}
           .sig-space {{ height: 48px; }}
-          .dispatch-section {{ border-top: 1px dashed #777; padding-top: 8px; margin-top: 6px; }}
+          .dispatch-section {{ border-top: 1px dashed #777; padding-top: 8mm; margin-top: 6mm; }}
           .dispatch-row {{ width: 100%; display: flex; justify-content: space-between; font-size: 10pt; font-weight: bold; margin-bottom: 6px; }}
           .copy-list {{ margin: 4px 0 10px 25px; padding: 0; font-size: 9.5pt; line-height: 1.55; }}
           .footer-outside {{ margin-top: 4px; font-size: 8pt; color: #333; display: flex; justify-content: space-between; }}
@@ -697,7 +1159,6 @@ elif active_page == "increment_order":
     st.info(f"कॉलम 6 हेडर स्वतः सेट: **{col6_title}** | वेतन वृद्धि दिनांक: **{calc_cur_date.strftime('%d/%m/%Y')}** | आगामी दिनांक: **{calc_nxt_date.strftime('%d/%m/%Y')}**")
 
     st.markdown("<hr style='border-color: #1b4f72; margin: 12px 0;'>", unsafe_allow_html=True)
-
     st.markdown("<h5 style='color:#5dade2; margin-bottom: 4px;'>२. कर्मचारी विवरण एवं वेतन वृद्धि गणना</h5>", unsafe_allow_html=True)
     
     ie1, ie2, ie3 = st.columns(3)
@@ -956,7 +1417,6 @@ elif active_page == "sanchalan_portal":
         st.markdown("<div style='padding-top: 10px; color:#2ecc71; font-weight:bold;'>✔ मास्टर डेटा (29 एम्प्लॉयीज) सक्रिय</div>", unsafe_allow_html=True)
 
     st.markdown("<hr style='border-color: #1b4f72; margin: 12px 0;'>", unsafe_allow_html=True)
-
     st.markdown("<h5 style='color:#5dade2; margin-bottom: 4px;'>२. भुगतान विवरण प्रविष्टि (मास्टर ऑटो-फिल समर्थित)</h5>", unsafe_allow_html=True)
 
     school_list = schools_data.get("schools", ["राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी"])
@@ -1293,5 +1753,632 @@ elif active_page == "sanchalan_portal":
             label="✨ संचालन पोर्टल आदेश जनरेट करें (PDF / Print Preview) 🖨",
             data=san_html,
             file_name=f"Sanchalan_Sanction_Order_{datetime.now().strftime('%Y%m%d')}.html",
+            mime="text/html"
+        )
+
+# =============================================================================
+# पृष्ठ 5: वेतन एरियर (Salary Arrear) गणना एवं अंतर विवरण प्रपत्र मॉड्यूल (7th CPC Landscape Final Fixes)
+# =============================================================================
+elif active_page == "salary_arrear":
+    # IMPORTANT: The arrear calculation engine is intentionally kept outside
+    # app.py. This page only collects UI inputs, calls calculate_arrear(), and
+    # renders the returned data. Other modules/pages are left untouched.
+    st.markdown('<a href="/?page=dashboard" target="_self" class="back-btn">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
+
+    if "arrear_bundle_loaded" not in st.session_state:
+        arr_bundle = load_json_data(ARREAR_DATA_FILE, {"office_data": {}, "employees": []})
+        st.session_state.arr_office = arr_bundle.get("office_data", {})
+        st.session_state.arr_employees = arr_bundle.get("employees", [])
+        st.session_state.arrear_bundle_loaded = True
+
+    saved_arr_off = st.session_state.arr_office
+
+    st.markdown("""
+    <div class="main-header" style="padding:12px; margin-bottom:15px;">
+      <h2 style="color:#f4d03f;margin:0;font-size:22px;">7th Pay Commission - वेतन एरियर (Salary Arrear) अंतर विवरण प्रपत्र</h2>
+      <p style="color:#aed6f1;margin:3px 0 0;font-size:12px;">माह-वार • आंशिक दिवस • Pay-Level change • Increment control • DA/GPF • कटौतियाँ</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<h5 style='color:#f39c12;margin-bottom:4px;'>१. कार्यालय एवं सामान्य विवरण</h5>", unsafe_allow_html=True)
+    ac1, ac2, ac3 = st.columns(3)
+    with ac1:
+        arr_office = st.text_input("कार्यालय का नाम:", saved_arr_off.get("office_name", "प्रधानाचार्य, रा.उ.मा.वि. रोजड़ी (जयपुर)"), key="w_arr_off")
+        arr_order_no = st.text_input("आदेश/पत्र क्रमांक:", saved_arr_off.get("order_no", "संस्था/एरियर/2026/...."), key="w_arr_ord_no")
+    with ac2:
+        arr_reason = st.selectbox("एरियर बनाने का कारण:", ARREAR_REASONS, key="w_arr_reason")
+        arr_order_date = st.date_input("आदेश दिनांक:", datetime.now(), key="w_arr_odt")
+    with ac3:
+        arr_treasury = st.selectbox("उपकोष कार्यालय:", ["सांभर लेक", "जयपुर", "किशनगढ़", "फुलेरा", "अन्य"], index=0, key="w_arr_tr")
+
+    st.markdown("<hr style='border-color:#1b4f72;margin:12px 0;'>", unsafe_allow_html=True)
+    st.markdown("<h5 style='color:#5dade2;margin-bottom:4px;'>२. कर्मचारी एवं अवधि विवरण</h5>", unsafe_allow_html=True)
+
+    e_c1, e_c2, e_c3 = st.columns(3)
+    with e_c1:
+        arr_emp_name = st.text_input("कर्मचारी का नाम:", key="w_arr_name")
+        arr_emp_id = st.text_input("Employee ID:", key="w_arr_emp_id")
+        arr_desig = st.selectbox("पद (Designation):", DESIG_LIST, key="w_arr_desig")
+        arr_pan = st.text_input("PAN Number:", value="ABCDE1234F", key="w_arr_pan")
+    with e_c2:
+        arr_bank = st.selectbox("बैंक का नाम:", NATIONALIZED_BANKS, index=0, key="w_arr_bank")
+        arr_acc = st.text_input("Account Number:", value="30389303113", key="w_arr_acc")
+        arr_ifsc = st.text_input("IFSC Code:", value="SBIN0011305", key="w_arr_ifsc")
+    with e_c3:
+        arr_start_dt = st.date_input("एरियर प्रारंभ / वास्तविक प्रभावित (प्रभावी) दिनांक:", datetime(2025, 3, 15), key="w_arr_sdt")
+        arr_end_dt = st.date_input("एरियर समाप्ति दिनांक (To):", datetime(2026, 6, 30), key="w_arr_edt")
+        city_cat = st.selectbox("शहर श्रेणी (HRA हेतु):", ["Classified (जयपुर, जोधपुर आदि)", "Other Places (अन्य स्थान)"], key="w_arr_city")
+
+    level_change_reason = any(x in arr_reason for x in ["Promotion", "ACP / MACP"])
+    pay_fixation_reason = "Pay Fixation" in arr_reason
+    old_level = new_level = None
+
+    # Promotion/ACP-MACP: Pay Level may or may not change.
+    # Pay Fixation: levels are shown, but the Due Basic remains manual because
+    # fixation can arise from several different statutory circumstances.
+    if level_change_reason or pay_fixation_reason:
+        notice = (
+            "प्रमोशन/ACP-MACP में Pay Level बदल सकता है — यदि Level बदलता है तो Promotion वाला नियम लागू होगा; यदि Level समान है तो उसी Level में केवल एक Increment दिया जाएगा।"
+            if level_change_reason else
+            "Pay Fixation में कोई automatic fixation rule लागू नहीं किया जाएगा; देय मूल वेतन डेटा एंट्री ऑपरेटर स्वयं दर्ज करेगा।"
+        )
+        st.markdown(
+            f"<div style='padding:8px;border:1px solid #f39c12;border-radius:6px;color:#f4d03f;font-weight:bold;'>{notice}</div>",
+            unsafe_allow_html=True
+        )
+        pc1, pc2 = st.columns(2)
+        with pc1:
+            old_level = st.selectbox("पूर्व Pay Level:", [f"L-{k}" for k in range(1, 19)], index=10, key="w_arr_old_level")
+        with pc2:
+            new_level = st.selectbox("पश्चात Pay Level:", [f"L-{k}" for k in range(1, 19)], index=11, key="w_arr_new_level")
+    else:
+        pay_lvl_input = st.selectbox("Pay Level:", [f"L-{k}" for k in range(1, 19)], index=11, key="w_arr_plvl")
+        old_level = new_level = pay_lvl_input
+
+    acp_macp_tenure = None
+    if "ACP / MACP" in arr_reason:
+        acp_macp_tenure = st.selectbox(
+            "ACP / MACP का चयन (सेवा अवधि):",
+            ["9 वर्षीय", "18 वर्षीय", "27 वर्षीय"],
+            index=0,
+            key="w_arr_acp_macp_tenure"
+        )
+
+    city_type_val = "Classified" if "Classified" in city_cat else "Other"
+
+    if level_change_reason and old_level == new_level:
+        st.info("ACP / MACP में Pay Level समान है — प्रारंभिक देय वेतन उसी Level की अगली Pay Matrix Cell से स्वतः निर्धारित होगा।")
+    elif level_change_reason and old_level != new_level:
+        st.info("Promotion/ACP-MACP में Pay Level बदला है — पहले पूर्व Level में एक Increment, फिर पश्चात Level में उससे अगली उच्च Cell पर Pay Fixation होगा।")
+
+    st.markdown("<h5 style='color:#f39c12;margin-top:15px;margin-bottom:4px;'>३. मूल वेतन, Increment एवं मासिक कटौतियाँ</h5>", unsafe_allow_html=True)
+    m_c1, m_c2, m_c3, m_c4 = st.columns(4)
+    with m_c1:
+        drawn_basic_def = st.number_input("प्रारंभिक आहरित मूल वेतन (पूर्व Level) ₹:", min_value=0, value=65000, step=100, key="w_arr_db")
+
+        auto_fixation_reason = level_change_reason
+        auto_due_basic = get_initial_due_basic(
+            reason=arr_reason,
+            old_level=old_level,
+            new_level=new_level,
+            drawn_basic=int(drawn_basic_def),
+            pay_matrix=PAY_MATRIX_7TH,
+        )
+        auto_due_state_key = f"{arr_reason}|{old_level}|{new_level}|{int(drawn_basic_def)}"
+        if st.session_state.get("w_arr_dub_auto_state_key") != auto_due_state_key:
+            st.session_state["w_arr_dub_auto"] = int(auto_due_basic)
+            st.session_state["w_arr_dub_auto_state_key"] = auto_due_state_key
+        if auto_fixation_reason:
+            due_basic_def = st.number_input(
+                "प्रारंभिक देय मूल वेतन (स्वतः Pay Fixation) ₹:",
+                min_value=0,
+                value=int(auto_due_basic),
+                step=100,
+                disabled=True,
+                key="w_arr_dub_auto"
+            )
+            st.caption("यह राशि Promotion/ACP-MACP के Pay Fixation नियम से स्वतः निर्धारित है; इसमें manual बदलाव नहीं किया जा सकता।")
+        else:
+            due_basic_def = st.number_input(
+                "प्रारंभिक देय मूल वेतन (पश्चात Level) ₹:",
+                min_value=0,
+                value=67000,
+                step=100,
+                key="w_arr_dub_manual"
+            )
+    with m_c2:
+        st.markdown("**GPF**")
+        drawn_gpf_m = st.number_input("मासिक आहरित GPF (₹):", min_value=0, value=2850, step=50, key="w_arr_dgpf")
+        due_gpf_auto = get_gpf_minimum_for_basic(int(due_basic_def))
+        gpf_due_display = st.number_input("मासिक देय GPF (slab minimum) ₹:", min_value=0, value=due_gpf_auto, step=50, key="w_arr_dugpf")
+    with m_c3:
+        st.markdown("**SI**")
+        drawn_si_m = st.number_input("मासिक आहरित SI (₹):", min_value=0, value=3000, step=500, key="w_arr_dsi")
+        si_options = get_si_options_for_basic(int(due_basic_def))
+        default_si = si_options[0] if 3000 not in si_options else 3000
+        due_si_m = st.selectbox("मासिक देय SI (slab विकल्प):", si_options, index=si_options.index(default_si), key="w_arr_dusi")
+    with m_c4:
+        st.markdown("**RGHS**")
+        drawn_rghs_m = st.number_input("मासिक आहरित RGHS (₹):", min_value=0, value=get_rghs_deduction_for_basic(int(due_basic_def)), step=50, key="w_arr_drghs")
+        due_rghs_m = st.number_input("मासिक देय RGHS (slab) ₹:", min_value=0, value=get_rghs_deduction_for_basic(int(due_basic_def)), step=50, key="w_arr_durghs")
+
+    inc_c1, inc_c2 = st.columns(2)
+    with inc_c1:
+        inc_month_choice = st.selectbox("वार्षिक Increment माह:", ["लागू नहीं (None)", "जनवरी (January)", "जुलाई (July)"], index=2, key="w_arr_inc_m")
+    with inc_c2:
+        increment_received_old = st.radio("क्या पुराने वेतन/Pay Level में नियमित रूप से Increment लगा है?", ["हाँ", "नहीं"], horizontal=True, key="w_arr_inc_received")
+
+    if increment_received_old == "नहीं" and inc_month_choice != "लागू नहीं (None)":
+        inc_month_num = 1 if inc_month_choice.startswith("जनवरी") else 7
+        candidate_dates = []
+        for yy in range(arr_start_dt.year, arr_end_dt.year + 1):
+            candidate = datetime(yy, inc_month_num, 1).date()
+            if arr_start_dt <= candidate <= arr_end_dt:
+                candidate_dates.append(candidate)
+        missed_increment_dates = st.multiselect(
+            "जिन-जिन वर्षों में पुराने वेतन/Level पर Increment नहीं मिला, वे तिथियाँ चुनें:",
+            candidate_dates,
+            format_func=lambda d: d.strftime("%d-%m-%Y"),
+            key="w_arr_missed_incs"
+        )
+    else:
+        missed_increment_dates = []
+
+    t_c1, t_c2 = st.columns(2)
+    with t_c1:
+        income_tax_ded = st.number_input("मासिक आयकर (IT ₹):", min_value=0, value=1000, step=100, key="w_arr_it")
+    with t_c2:
+        other_ded = st.number_input("मासिक अन्य कटौती (Other ₹):", min_value=0, value=0, step=100, key="w_arr_oth")
+
+    if st.button("➕ माह-वार रो-वाइज एरियर गणना करें और सूची में जोड़ें", key="btn_add_arr_emp"):
+        if not arr_emp_name.strip():
+            st.error("कृपया कर्मचारी का नाम दर्ज करें!")
+        elif not arr_emp_id.strip():
+            st.error("कृपया Employee ID दर्ज करें!")
+        elif arr_start_dt > arr_end_dt:
+            st.error("प्रारंभ/प्रभावी दिनांक समाप्ति दिनांक से बाद की नहीं हो सकती!")
+        else:
+            try:
+                calc = calculate_arrear(
+                    start_date=arr_start_dt,
+                    end_date=arr_end_dt,
+                    old_pay_level=old_level,
+                    new_pay_level=new_level,
+                    drawn_basic=int(drawn_basic_def),
+                    due_basic=int(due_basic_def),
+                    increment_month=None if inc_month_choice.startswith("लागू") else (1 if inc_month_choice.startswith("जनवरी") else 7),
+                    increment_received_old=increment_received_old,
+                    missed_increment_dates=missed_increment_dates,
+                    pay_matrix=PAY_MATRIX_7TH,
+                    city_type=city_type_val,
+                    drawn_gpf=int(drawn_gpf_m),
+                    drawn_si=int(drawn_si_m),
+                    drawn_rghs=int(drawn_rghs_m),
+                    income_tax=int(income_tax_ded),
+                    other_deduction=int(other_ded),
+                    due_si_option=int(due_si_m),
+                    due_gpf_override=int(gpf_due_display),
+                    due_rghs_override=int(due_rghs_m),
+                    initial_due_fixation_applied=(level_change_reason or ("ACP / MACP" in arr_reason)),
+                )
+            except Exception as exc:
+                st.error(f"एरियर calculation में त्रुटि: {exc}")
+                st.stop()
+
+            reconciliation = calc["reconciliation"]
+            if not reconciliation["is_valid"]:
+                st.error("Calculation reconciliation failed: displayed gross difference और component differences बराबर नहीं हैं।")
+            else:
+                totals = calc["totals"]
+                st.session_state.arr_employees.append({
+                    "emp_name": arr_emp_name.strip(), "employee_id": arr_emp_id.strip(), "designation": arr_desig,
+                    "pay_level": new_level, "old_pay_level": old_level, "new_pay_level": new_level,
+                    "pan": arr_pan.strip(), "bank": arr_bank, "account": arr_acc.strip(), "ifsc": arr_ifsc.strip(),
+                    "start_date": arr_start_dt.strftime('%d/%m/%Y'), "end_date": arr_end_dt.strftime('%d/%m/%Y'),
+                    "reason": arr_reason, "order_date": arr_order_date.strftime('%d/%m/%Y'),
+                    "acp_macp_tenure": acp_macp_tenure,
+                    "initial_due_basic": int(due_basic_def),
+                    "automatic_fixation": bool(level_change_reason),
+                    "monthly_rows": calc["monthly_rows"],
+                    "total_diff_total": totals["diff_total"], "total_diff_gpf": totals["diff_gpf"], "total_diff_si": totals["diff_si"],
+                    "total_diff_rghs": totals["diff_rghs"], "total_gpf_deposit": totals["gpf_deposit"], "total_it": totals["income_tax"],
+                    "total_oth": totals["other_deduction"], "net_payable": totals["net_payable"],
+                    "increment_received_old": increment_received_old,
+                    "missed_increment_dates": [d.strftime('%d/%m/%Y') for d in missed_increment_dates],
+                    "due_gpf": int(gpf_due_display), "due_si": int(due_si_m), "due_rghs": int(due_rghs_m),
+                })
+                cur_off = {"office_name": arr_office.strip(), "order_no": arr_order_no.strip(), "reason": arr_reason.strip(), "sub_treasury": arr_treasury.strip()}
+                save_json_data(ARREAR_DATA_FILE, {"office_data": cur_off, "employees": st.session_state.arr_employees})
+                st.success(f"कार्मिक '{arr_emp_name}' का माह-वार एरियर सफलतापूर्वक गणना कर लिया गया है।")
+                st.rerun()
+
+    if st.session_state.arr_employees:
+        st.markdown("<hr style='border-color:#1b4f72;margin:12px 0;'>", unsafe_allow_html=True)
+        st.markdown("<h5 style='color:#2ecc71;margin-bottom:4px;'>४. एरियर हेतु प्रविष्ट कार्मिकों की सूची</h5>", unsafe_allow_html=True)
+
+        arr_tbl = """<table class="custom-table"><thead><tr><th>क्र.</th><th>कर्मचारी का नाम</th><th>पद</th><th>अवधि</th><th>माह</th><th>कुल अंतर योग (₹)</th><th>शुद्ध देय (₹)</th></tr></thead><tbody>"""
+        for idx, item in enumerate(st.session_state.arr_employees, 1):
+            arr_tbl += f"<tr><td>{idx}</td><td>{item.get('emp_name','')}</td><td>{item.get('designation','')}</td><td>{item.get('start_date','')} से {item.get('end_date','')}</td><td>{len(item.get('monthly_rows', []))}</td><td>{item.get('total_diff_total',0):,}</td><td>{item.get('net_payable',0):,}</td></tr>"
+        arr_tbl += "</tbody></table>"
+        st.markdown(arr_tbl, unsafe_allow_html=True)
+
+        selected_emp_idx = st.selectbox(
+            "एरियर शीट जनरेट हेतु कार्मिक चुनें:",
+            range(len(st.session_state.arr_employees)),
+            format_func=lambda x: f"{x+1}. {st.session_state.arr_employees[x].get('emp_name','')}",
+            key="gen_sheet_sel"
+        )
+
+        # -----------------------------------------------------------------
+        # कार्मिक सूची नियंत्रण — अन्य मॉड्यूल की तरह चयनित हटाएँ / पूरी
+        # सूची खाली करें। Delete के बाद JSON file भी तुरंत update होगी।
+        # -----------------------------------------------------------------
+        ctrl1, ctrl2, ctrl3 = st.columns([1.3, 1.3, 2.4])
+        with ctrl1:
+            if st.button("🗑 चयनित कर्मचारी हटाएं", key="btn_del_arr_selected", use_container_width=True):
+                removed = st.session_state.arr_employees.pop(selected_emp_idx)
+                save_json_data(
+                    ARREAR_DATA_FILE,
+                    {"office_data": st.session_state.arr_office, "employees": st.session_state.arr_employees}
+                )
+                st.success(f"कार्मिक '{removed.get('emp_name','')}' को सूची से हटा दिया गया है।")
+                st.rerun()
+        with ctrl2:
+            clear_confirm = st.checkbox("पूरी सूची खाली करने की पुष्टि", key="arr_clear_confirm")
+            if st.button("🗑 पूरी सूची खाली करें", key="btn_clear_arr_all", use_container_width=True):
+                if not clear_confirm:
+                    st.warning("पूरी सूची हटाने के लिए पहले पुष्टि checkbox चुनें।")
+                else:
+                    st.session_state.arr_employees = []
+                    save_json_data(
+                        ARREAR_DATA_FILE,
+                        {"office_data": st.session_state.arr_office, "employees": []}
+                    )
+                    st.success("एरियर की पूरी कर्मचारी सूची खाली कर दी गई है।")
+                    st.rerun()
+        with ctrl3:
+            st.info("चयनित कर्मचारी हटाने से केवल चुनी हुई एंट्री हटेगी; 'पूरी सूची खाली करें' से सभी एंट्री हटेंगी।")
+
+        emp = st.session_state.arr_employees[selected_emp_idx]
+        rows = emp.get('monthly_rows', []) or []
+
+        def money(v):
+            try:
+                return f"{int(round(float(v or 0))):,}"
+            except Exception:
+                return "0"
+
+        def amount_words_hi(amount):
+            """भारतीय संख्या-पद्धति में पूर्ण रुपये को शुद्ध हिंदी शब्दों में लिखें।"""
+            try:
+                n = int(round(float(amount or 0)))
+            except Exception:
+                n = 0
+            if n == 0:
+                return "शून्य रुपये मात्र"
+
+            hindi_0_99 = [
+                "", "एक", "दो", "तीन", "चार", "पाँच", "छह", "सात", "आठ", "नौ",
+                "दस", "ग्यारह", "बारह", "तेरह", "चौदह", "पंद्रह", "सोलह", "सत्रह",
+                "अठारह", "उन्नीस", "बीस", "इक्कीस", "बाईस", "तेईस", "चौबीस",
+                "पच्चीस", "छब्बीस", "सत्ताईस", "अट्ठाईस", "उनतीस", "तीस", "इकतीस",
+                "बत्तीस", "तैंतीस", "चौंतीस", "पैंतीस", "छत्तीस", "सैंतीस", "अड़तीस",
+                "उनतालीस", "चालीस", "इकतालीस", "बयालीस", "तैंतालीस", "चवालीस",
+                "पैंतालीस", "छियालीस", "सैंतालीस", "अड़तालीस", "उनचास", "पचास",
+                "इक्यावन", "बावन", "तिरपन", "चौवन", "पचपन", "छप्पन", "सत्तावन",
+                "अट्ठावन", "उनसठ", "साठ", "इकसठ", "बासठ", "तिरसठ", "चौंसठ",
+                "पैंसठ", "छियासठ", "सड़सठ", "अड़सठ", "उनहत्तर", "सत्तर", "इकहत्तर",
+                "बहत्तर", "तिहत्तर", "चौहत्तर", "पचहत्तर", "छिहत्तर", "सतहत्तर",
+                "अठहत्तर", "उनासी", "अस्सी", "इक्यासी", "बयासी", "तिरासी", "चौरासी",
+                "पचासी", "छियासी", "सत्तासी", "अट्ठासी", "नवासी", "नब्बे", "इक्यानबे",
+                "बानबे", "तिरानबे", "चौरानबे", "पंचानबे", "छियानबे", "सत्तानबे",
+                "अट्ठानबे", "निन्यानबे"
+            ]
+
+            def under_100(x):
+                return hindi_0_99[int(x)] if int(x) else ""
+
+            def under_1000(x):
+                x = int(x)
+                if x < 100:
+                    return under_100(x)
+                h, rem = divmod(x, 100)
+                text = hindi_0_99[h] + " सौ"
+                if rem:
+                    text += " " + under_100(rem)
+                return text
+
+            parts = []
+            crore, n = divmod(n, 10000000)
+            lakh, n = divmod(n, 100000)
+            thousand, n = divmod(n, 1000)
+
+            if crore:
+                parts.append(under_1000(crore) + " करोड़")
+            if lakh:
+                parts.append(under_1000(lakh) + " लाख")
+            if thousand:
+                parts.append(under_1000(thousand) + " हजार")
+            if n:
+                parts.append(under_1000(n))
+
+            return " ".join(parts) + " रुपये मात्र"
+
+        # 22 columns: serial, month/details, 12 income, 7 deductions, net.
+        table_widths = ["3.2%", "8.8%"] + ["4.15%"] * 12 + ["4.9%"] * 7 + ["6.2%"]
+
+        def row_html(r):
+            days_in_month = r.get("days_in_month")
+            if not days_in_month:
+                # Backward compatibility for old saved records.
+                days_in_month = r.get("worked_days", 0)
+                text = str(r.get("month_year", ""))
+                for num, name in enumerate([
+                    "जनवरी", "फरवरी", "मार्च", "अप्रैल", "मई", "जून",
+                    "जुलाई", "अगस्त", "सितम्बर", "अक्टूबर", "नवम्बर", "दिसम्बर"
+                ], 1):
+                    if name in text:
+                        import re
+                        ym = re.search(r"(20\d{2})", text)
+                        if ym:
+                            days_in_month = calendar.monthrange(int(ym.group(1)), num)[1]
+                        break
+
+            month_details = (
+                f"{r.get('month_year','')}<br>"
+                f"<span class='small'>DA {float(r.get('da_pct',0)):.0f}% | "
+                f"HRA {float(r.get('hra_pct',0)):.0f}% | "
+                f"{r.get('worked_days',0)}/{days_in_month} दिन</span>"
+            )
+            cells = [
+                r.get("serial", ""), month_details,
+                money(r.get('due_basic')), money(r.get('due_da')), money(r.get('due_hra')), money(r.get('due_gross')),
+                money(r.get('drawn_basic')), money(r.get('drawn_da')), money(r.get('drawn_hra')), money(r.get('drawn_gross')),
+                money(r.get('diff_basic')), money(r.get('diff_da')), money(r.get('diff_hra')), money(r.get('diff_total')),
+                money(r.get('diff_gpf')), money(r.get('diff_rghs')), money(r.get('diff_si')), money(r.get('gpf_deposit')),
+                money(r.get('income_tax')), money(r.get('other_ded')), money(r.get('deduction_total')), money(r.get('net_payable'))
+            ]
+            return "<tr>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>"
+
+        sum_keys = [
+            'drawn_basic','drawn_da','drawn_hra','drawn_gross','due_basic','due_da','due_hra','due_gross',
+            'diff_basic','diff_da','diff_hra','diff_total','diff_gpf','diff_rghs','diff_si','gpf_deposit',
+            'income_tax','other_ded','deduction_total','net_payable'
+        ]
+        total_row = {k: sum(float(r.get(k, 0) or 0) for r in rows) for k in sum_keys}
+        total_row['month_year'] = 'कुल योग'
+
+        def total_row_html(t):
+            vals=[
+                "", t["month_year"], money(t["due_basic"]), money(t["due_da"]), money(t["due_hra"]), money(t["due_gross"]),
+                money(t["drawn_basic"]), money(t["drawn_da"]), money(t["drawn_hra"]), money(t["drawn_gross"]),
+                money(t["diff_basic"]), money(t["diff_da"]), money(t["diff_hra"]), money(t["diff_total"]),
+                money(t["diff_gpf"]), money(t["diff_rghs"]), money(t["diff_si"]), money(t["gpf_deposit"]),
+                money(t["income_tax"]), money(t["other_ded"]), money(t["deduction_total"]), money(t["net_payable"])
+            ]
+            return "<tr class='total-row'>" + "".join(f"<td>{v}</td>" for v in vals) + "</tr>"
+
+        def make_header():
+            return """
+            <thead>
+              <tr class='group-row'>
+                <th rowspan='3'>क्र.<br>सं.</th>
+                <th rowspan='3'>माह एवं वर्ष<br><span class='small white'>DA % | HRA % | दिन</span></th>
+                <th colspan='12' class='income-head'>आय</th>
+                <th colspan='7' class='deduction-head'>कटौतियाँ</th>
+                <th rowspan='3' class='net-head'>शुद्ध देय राशि</th>
+              </tr>
+              <tr class='group-row'>
+                <th colspan='4' class='due-head'>देय वेतन</th>
+                <th colspan='4' class='drawn-head'>आहरित वेतन</th>
+                <th colspan='4' class='diff-head'>अंतर</th>
+                <th rowspan='2' class='deduction-head'>GPF अंतर</th>
+                <th rowspan='2' class='deduction-head'>RGHS अंतर</th>
+                <th rowspan='2' class='deduction-head'>SI अंतर</th>
+                <th rowspan='2' class='deduction-head'>GPF में जमा DA एरियर</th>
+                <th rowspan='2' class='deduction-head'>आयकर</th>
+                <th rowspan='2' class='deduction-head'>अन्य कटौतियाँ</th>
+                <th rowspan='2' class='deduction-head'>कटौतियों का कुल योग</th>
+              </tr>
+              <tr class='subhead'>
+                <th>मूल वेतन</th><th>महंगाई भत्ता</th><th>मकान किराया भत्ता</th><th>कुल योग</th>
+                <th>मूल वेतन</th><th>महंगाई भत्ता</th><th>मकान किराया भत्ता</th><th>कुल योग</th>
+                <th>मूल वेतन का अंतर</th><th>महंगाई भत्ते का अंतर</th><th>मकान किराये का अंतर</th><th>कुल योग का अंतर</th>
+              </tr>
+            </thead>"""
+
+        # -----------------------------------------------------------------
+        # A4 LANDSCAPE PAGINATION
+        # -----------------------------------------------------------------
+        # The PDF is built as real, fixed-height A4-landscape page boxes.
+        # Row capacities are deliberately conservative so no row can be
+        # pushed underneath the footer/border.  The final page reserves
+        # space for Total + Summary + Amount in Words + Certification.
+        # -----------------------------------------------------------------
+        FIRST_CAPACITY = 16
+        MIDDLE_CAPACITY = 18
+        LAST_CAPACITY = 10
+
+        def pack_rows(all_rows):
+            all_rows = list(all_rows or [])
+            n = len(all_rows)
+            if n == 0:
+                return [[]]
+
+            # One-page statement: leave enough room for summary and
+            # certification instead of filling the table to the bottom.
+            if n <= LAST_CAPACITY:
+                return [all_rows]
+
+            # Choose the smallest number of pages that can accommodate all
+            # rows while respecting the special last-page capacity.
+            page_count = 2
+            while True:
+                middle_slots = max(0, page_count - 2) * MIDDLE_CAPACITY
+                if n <= FIRST_CAPACITY + middle_slots + LAST_CAPACITY:
+                    break
+                page_count += 1
+
+            # Reserve the final page for the summary/certification and
+            # distribute all remaining rows as evenly as possible across
+            # the earlier pages. This avoids both an almost-empty middle page
+            # and a one-row final page.
+            last_n = min(LAST_CAPACITY, max(1, int(round(n / page_count))))
+            earlier_n = n - last_n
+            earlier_pages = page_count - 1
+
+            # Start with an even distribution, then respect each page's
+            # maximum capacity.
+            base = earlier_n // earlier_pages
+            extra = earlier_n % earlier_pages
+            earlier_counts = [base + (1 if i < extra else 0) for i in range(earlier_pages)]
+
+            # If rounding would exceed a page capacity, move the excess to
+            # the next page(s). The chosen page_count guarantees that enough
+            # total capacity exists.
+            for i in range(len(earlier_counts)):
+                cap = FIRST_CAPACITY if i == 0 else MIDDLE_CAPACITY
+                if earlier_counts[i] > cap:
+                    excess = earlier_counts[i] - cap
+                    earlier_counts[i] = cap
+                    j = i + 1
+                    while excess and j < len(earlier_counts):
+                        next_cap = MIDDLE_CAPACITY
+                        room = next_cap - earlier_counts[j]
+                        move = min(room, excess)
+                        earlier_counts[j] += move
+                        excess -= move
+                        j += 1
+                    if excess:
+                        # Should be unreachable because page_count was
+                        # selected from the total capacity calculation.
+                        raise RuntimeError("PDF pagination capacity calculation failed")
+
+            counts = earlier_counts + [last_n]
+            pages = []
+            pos = 0
+            for count in counts:
+                pages.append(all_rows[pos:pos + count])
+                pos += count
+
+            return pages
+
+        pages = pack_rows(rows)
+        developer = "सॉफ्टवेयर डेवलपर: आलोक कुमार सिंह, वरिष्ठ अध्यापक, राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी | ईमेल: alokjobner@gmail.com"
+        html_pages = []
+
+        for pno, page_rows in enumerate(pages, 1):
+            is_first = pno == 1
+            is_last = pno == len(pages)
+            body_rows = "".join(row_html(r) for r in page_rows)
+            if is_last:
+                body_rows += total_row_html(total_row)
+
+            header_block = "" if not is_first else f"""
+              <div class='header'>
+                <div class='office-title'>{arr_office}</div>
+                <div class='form-title'>अंतर विवरण प्रपत्र — वेतन एरियर</div>
+                <div class='info-grid'>
+                  <span><b>कर्मचारी का नाम:</b> {emp.get('emp_name','')}</span><span><b>एम्प्लॉय आईडी:</b> {emp.get('employee_id','—')}</span>
+                  <span><b>पद:</b> {emp.get('designation','')}</span><span><b>PAN:</b> {emp.get('pan','')}</span>
+                  <span><b>खाता संख्या:</b> {emp.get('account','')} ({emp.get('bank','')})</span><span><b>एरियर अवधि:</b> {emp.get('start_date','')} से {emp.get('end_date','')}</span>
+                  <span><b>एरियर बनाने का कारण:</b> {emp.get('reason','')}</span><span><b>Pay Level:</b> {emp.get('old_pay_level','-')} → {emp.get('new_pay_level','-')}</span>
+                </div>
+              </div>"""
+
+            summary_block = ""
+            certification_block = ""
+            if is_last:
+                gross_payable = int(round(total_row.get('diff_total', 0)))
+                gross_deduction = int(round(total_row.get('deduction_total', 0)))
+                net_payable = int(round(total_row.get('net_payable', 0)))
+                summary_block = f"""
+                <div class='final-summary'>
+                  <div class='summary-title'>सारांश</div>
+                  <table class='summary-table'>
+                    <tr><td>ग्रॉस देय राशि (Gross Payable)</td><td>₹ {money(gross_payable)}</td></tr>
+                    <tr><td>ग्रॉस रिडक्शन / कुल कटौती (Gross Reduction / Gross Deduction)</td><td>₹ {money(gross_deduction)}</td></tr>
+                    <tr class='net-summary'><td>शुद्ध देय राशि (Net Payable)</td><td>₹ {money(net_payable)}</td></tr>
+                  </table>
+                  <div class='amount-words'><b>शुद्ध देय राशि शब्दों में:</b> {amount_words_hi(net_payable)}</div>
+                </div>"""
+                certification_block = f"""
+                <div class='cert'>
+                  <b>प्रमाणीकरण:</b> प्रमाणित किया जाता है कि उपर्युक्त एरियर राशि का भुगतान पहले किसी अन्य बिल के साथ नहीं किया गया है। यदि भविष्य में यह पाया जाता है कि उक्त राशि का भुगतान पहले किसी अन्य बिल के साथ किया जा चुका है, तो उक्त राशि की रिकवरी मेरे वेतन से कर ली जाए।
+                </div>
+                <div class='signatures'>
+                  <div>कर्मचारी के हस्ताक्षर<br><br>नाम: ____________________</div>
+                  <div>लिपिक के हस्ताक्षर<br><br>नाम: ____________________</div>
+                  <div>संस्था प्रधान के हस्ताक्षर<br><br>नाम/मुहर: ____________________</div>
+                </div>
+                <div class='copies'><b>प्रतिलिपि :- सूचनार्थ एवं आवश्यक कार्यवाही हेतु प्रेषित :-</b><br>
+                1. श्रीमान उपकोषाधिकारी, {arr_treasury}।<br>
+                2. संबंधित कर्मचारी — {emp.get('emp_name','')}, {emp.get('designation','')}।<br>
+                3. रक्षित पत्रावली / कार्यालय प्रति।</div>
+                """
+
+            html_pages.append(f"""
+            <section class='page-box {'first-page' if is_first else ''} {'last-page' if is_last else ''}'>
+              {header_block}
+              <div class='table-wrap'>
+                <table class='main-table'>
+                  <colgroup>{''.join(f'<col style="width:{w}">' for w in table_widths)}</colgroup>
+                  {make_header()}
+                  <tbody>{body_rows}</tbody>
+                </table>
+              </div>
+              {summary_block}
+              {certification_block}
+              <div class='page-footer-row'>
+                <span>पृष्ठ {pno} / {len(pages)}</span>
+                <span>{developer}</span>
+              </div>
+            </section>""")
+
+        arrear_html = f"""<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Salary Arrear Statement</title>
+        <style>
+          @page {{ size: A4 landscape; margin: 7mm; }}
+          * {{ box-sizing: border-box; }}
+          html, body {{ margin:0; padding:0; width:100%; background:#fff; }}
+          body {{ font-family:'Noto Sans Devanagari','Nirmala UI',Arial,sans-serif; color:#111; font-size:7pt; }}
+          .page-box {{ width:100%; height:196mm; min-height:196mm; max-height:196mm; border:1.8px solid #111; padding:3.5mm 3.5mm 2.5mm; margin:0; display:flex; flex-direction:column; overflow:hidden; page-break-after:always; break-after:page; position:relative; }}
+          .page-box:last-child {{ page-break-after:auto; break-after:auto; }}
+          .header {{ flex:0 0 auto; margin-bottom:1.8mm; }}
+          .office-title {{ text-align:center; font-size:13.5pt; font-weight:900; font-family:'Noto Serif Devanagari','Nirmala UI',serif; }}
+          .form-title {{ text-align:center; font-size:9.5pt; font-weight:900; margin:.7mm 0 1.5mm; }}
+          .info-grid {{ display:grid; grid-template-columns:1fr 1fr; border:1px solid #111; }}
+          .info-grid span {{ padding:.9mm 1.3mm; border-right:1px solid #111; border-bottom:1px solid #111; min-height:5.4mm; }}
+          .info-grid span:nth-child(2n) {{ border-right:0; }}
+          .info-grid span:nth-last-child(-n+2) {{ border-bottom:0; }}
+          .table-wrap {{ flex:1 1 auto; min-height:0; display:flex; width:100%; }}
+          .main-table {{ width:100%; height:100%; border-collapse:collapse; table-layout:fixed; margin:0; }}
+          .main-table th,.main-table td {{ border:1px solid #111; text-align:center; vertical-align:middle; padding:.72mm .32mm; line-height:1.0; overflow-wrap:anywhere; }}
+          .main-table th {{ font-weight:900; font-size:5.9pt; }}
+          .main-table td {{ font-size:6.0pt; }}
+          .group-row th {{ color:#fff; font-size:6.6pt; }}
+          .income-head {{ background:#2471a3; }} .deduction-head {{ background:#884c3c; }} .drawn-head {{ background:#2874a6; }} .due-head {{ background:#7d3c98; }} .diff-head {{ background:#b9770e; }} .net-head {{ background:#1e8449; color:#fff; }}
+          .subhead th {{ background:#eaf2f8; color:#111; font-size:5.75pt; }}
+          .small {{ font-size:5.25pt; color:#555; }} .white {{ color:#fff; }}
+          .total-row td {{ background:#f4f6f7; font-weight:900; }}
+          .final-summary {{ flex:0 0 auto; margin-top:1.8mm; }}
+          .summary-title {{ font-weight:900; font-size:8pt; margin-bottom:.8mm; text-align:left; }}
+          .summary-table {{ width:100%; border-collapse:collapse; table-layout:fixed; }}
+          .summary-table td {{ border:1px solid #111; padding:1.0mm 1.5mm; font-weight:800; }}
+          .summary-table td:last-child {{ width:35%; text-align:right; }}
+          .net-summary td {{ font-size:8pt; background:#e8f8f0; }}
+          .amount-words {{ border:1px solid #111; border-top:0; padding:1.0mm 1.5mm; font-size:7pt; }}
+          .cert {{ flex:0 0 auto; margin-top:1.8mm; font-size:6.7pt; line-height:1.25; border:1px solid #111; padding:1.5mm; text-align:justify; }}
+          .signatures {{ flex:0 0 auto; display:flex; justify-content:space-between; margin-top:2.2mm; padding:0 4mm; font-weight:800; text-align:center; font-size:6.5pt; }}
+          .signatures div {{ width:30%; padding-top:3.5mm; }}
+          .copies {{ flex:0 0 auto; margin-top:1.5mm; line-height:1.25; font-size:6.5pt; }}
+          .page-footer-row {{ flex:0 0 auto; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #111; margin-top:1.5mm; padding-top:1mm; font-size:5.7pt; font-weight:700; }}
+          @media screen {{ .page-box {{ margin-bottom:8mm; box-shadow:0 0 4px rgba(0,0,0,.15); }} }}
+          @media print {{ html,body {{ width:100%; }} .page-box {{ margin:0; box-shadow:none; }} }}
+        </style></head><body>{''.join(html_pages)}</body></html>"""
+
+        st.download_button(
+            label=f"✨ '{emp.get('emp_name','')}' का पूर्ण माह-वार एरियर प्रपत्र (PDF/Print) डाउनलोड करें 🖨",
+            data=arrear_html,
+            file_name=f"Arrear_Statement_Final_{emp.get('emp_name','employee').replace(' ','_')}.html",
             mime="text/html"
         )
