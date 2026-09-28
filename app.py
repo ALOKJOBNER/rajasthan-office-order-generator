@@ -2162,8 +2162,8 @@ elif active_page == "salary_arrear":
             return """
             <thead>
               <tr class='group-row'>
-                <th rowspan='3'>क्र.<br>सं.</th>
-                <th rowspan='3'>माह एवं वर्ष<br><span class='small white'>DA % | HRA % | दिन</span></th>
+                <th rowspan='3' class='serial-head'>क्र.<br>सं.</th>
+                <th rowspan='3' class='month-head'>माह एवं वर्ष<br><span class='small white'>DA % | HRA % | दिन</span></th>
                 <th colspan='12' class='income-head'>आय</th>
                 <th colspan='7' class='deduction-head'>कटौतियाँ</th>
                 <th rowspan='3' class='net-head'>शुद्ध देय राशि</th>
@@ -2356,6 +2356,8 @@ elif active_page == "salary_arrear":
           .main-table th {{ font-weight:900; font-size:5.9pt; }}
           .main-table td {{ font-size:6.0pt; }}
           .group-row th {{ color:#fff; font-size:6.6pt; }}
+          .serial-head {{ background:#34495e; color:#fff; }}
+          .month-head {{ background:#34495e; color:#fff; }}
           .income-head {{ background:#2471a3; }} .deduction-head {{ background:#884c3c; }} .drawn-head {{ background:#2874a6; }} .due-head {{ background:#7d3c98; }} .diff-head {{ background:#b9770e; }} .net-head {{ background:#1e8449; color:#fff; }}
           .subhead th {{ background:#eaf2f8; color:#111; font-size:5.75pt; }}
           .small {{ font-size:5.25pt; color:#555; }} .white {{ color:#fff; }}
