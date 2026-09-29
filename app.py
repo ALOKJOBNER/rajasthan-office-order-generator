@@ -4,6 +4,8 @@ import math
 import os
 import json
 import calendar
+import uuid
+import csv
 from datetime import datetime, date
 
 # 1. पेज कॉन्फ़िगरेशन
@@ -12,12 +14,1077 @@ st.set_page_config(
     page_icon="📜",
     layout="wide"
 )
+# ============================================================
+# SECURE USER LOGIN / REGISTRATION SYSTEM
+# ONE LOGIN FOR THE ENTIRE APPLICATION
+# ============================================================
 
-# 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक
-PL_DATA_FILE = os.path.join("output", "saved_pl_data.json")
-INC_DATA_FILE = os.path.join("output", "saved_increment_data.json")
-SAN_DATA_FILE = os.path.join("output", "saved_sanchalan_data.json")
-ARREAR_DATA_FILE = os.path.join("output", "saved_arrear_data.json")
+import sqlite3
+import hashlib
+import secrets
+import re
+from datetime import datetime, timedelta
+
+import extra_streamlit_components as stx
+
+
+# ============================================================
+# AUTH DATABASE
+# ============================================================
+
+AUTH_DB = os.path.join("output", "user_auth.db")
+os.makedirs("output", exist_ok=True)
+
+
+def get_auth_connection():
+    conn = sqlite3.connect(AUTH_DB, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_auth_database():
+    conn = get_auth_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            full_name TEXT NOT NULL,
+            mobile TEXT NOT NULL,
+            email TEXT NOT NULL,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            password_salt TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'user',
+            created_at TEXT NOT NULL,
+            last_login TEXT,
+            login_count INTEGER NOT NULL DEFAULT 0,
+            visit_count INTEGER NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            activity TEXT NOT NULL,
+            module TEXT,
+            activity_time TEXT NOT NULL,
+            details TEXT
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS login_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            token TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+init_auth_database()
+
+
+# ============================================================
+# PASSWORD / USER FUNCTIONS
+# ============================================================
+
+def hash_password(password, salt=None):
+    if salt is None:
+        salt = secrets.token_hex(32)
+    password_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        200000,
+    ).hex()
+    return password_hash, salt
+
+
+def verify_password(password, stored_hash, stored_salt):
+    calculated_hash, _ = hash_password(password, stored_salt)
+    return secrets.compare_digest(calculated_hash, stored_hash)
+
+
+def get_user(username):
+    if not username:
+        return None
+    conn = get_auth_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM users WHERE username = ? AND is_active = 1",
+        (username.strip().lower(),),
+    )
+    user = cur.fetchone()
+    conn.close()
+    return dict(user) if user else None
+
+
+def username_exists(username):
+    conn = get_auth_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM users WHERE username = ?", (username,))
+    result = cur.fetchone()
+    conn.close()
+    return result is not None
+
+
+def create_user(full_name, mobile, email, username, password):
+    """Create only normal users. Admin can never be created by registration."""
+    password_hash, password_salt = hash_password(password)
+    conn = get_auth_connection()
+    cur = conn.cursor()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        cur.execute("""
+            INSERT INTO users (
+                full_name, mobile, email, username,
+                password_hash, password_salt, role, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 'user', ?)
+        """, (
+            full_name, mobile, email, username,
+            password_hash, password_salt, now
+        ))
+        conn.commit()
+        return True, "user"
+    except sqlite3.IntegrityError:
+        return False, "duplicate"
+    finally:
+        conn.close()
+
+
+def get_admin_user():
+    """Return the permanent administrator record."""
+    conn = get_auth_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE role = 'admin' AND is_active = 1 ORDER BY id LIMIT 1")
+    user = cur.fetchone()
+    conn.close()
+    return dict(user) if user else None
+
+
+def reset_user_password(username, new_password):
+    """Reset password securely after successful recovery verification."""
+    password_hash, password_salt = hash_password(new_password)
+    conn = get_auth_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE users SET password_hash = ?, password_salt = ? WHERE username = ? AND is_active = 1",
+        (password_hash, password_salt, username),
+    )
+    changed = cur.rowcount > 0
+    conn.commit()
+    conn.close()
+    return changed
+
+
+# ============================================================
+# PERSISTENT LOGIN TOKEN
+# ============================================================
+
+USER_COOKIE_NAME = "raj_office_user_login"
+ADMIN_COOKIE_NAME = "raj_office_admin_login"
+COOKIE_DAYS = 30
+
+
+def create_login_token(username):
+    token = secrets.token_urlsafe(48)
+    now = datetime.now()
+    expires = now + timedelta(days=COOKIE_DAYS)
+
+    conn = get_auth_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO login_tokens (
+            username, token, created_at, expires_at, is_active
+        ) VALUES (?, ?, ?, ?, 1)
+    """, (
+        username,
+        token,
+        now.strftime("%Y-%m-%d %H:%M:%S"),
+        expires.strftime("%Y-%m-%d %H:%M:%S"),
+    ))
+    conn.commit()
+    conn.close()
+    return token
+
+
+def get_user_from_token(token):
+    if not token:
+        return None
+
+    conn = get_auth_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT u.*
+        FROM login_tokens t
+        JOIN users u ON u.username = t.username
+        WHERE t.token = ?
+          AND t.is_active = 1
+          AND u.is_active = 1
+          AND datetime(t.expires_at) > datetime('now', 'localtime')
+    """, (token,))
+    user = cur.fetchone()
+    conn.close()
+    return dict(user) if user else None
+
+
+def invalidate_token(token):
+    if not token:
+        return
+    conn = get_auth_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE login_tokens SET is_active = 0 WHERE token = ?",
+        (token,),
+    )
+    conn.commit()
+    conn.close()
+
+
+def save_activity(username, activity, module=None, details=None):
+    if not username:
+        return
+    conn = get_auth_connection()
+    cur = conn.cursor()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+        INSERT INTO activity_log (
+            username, activity, module, activity_time, details
+        ) VALUES (?, ?, ?, ?, ?)
+    """, (username, activity, module, now, details))
+    conn.commit()
+    conn.close()
+
+
+def update_login_information(username):
+    conn = get_auth_connection()
+    cur = conn.cursor()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+        UPDATE users
+        SET last_login = ?,
+            login_count = login_count + 1,
+            visit_count = visit_count + 1
+        WHERE username = ?
+    """, (now, username))
+    conn.commit()
+    conn.close()
+
+
+# ============================================================
+# COOKIE MANAGER + SESSION STATE
+# ============================================================
+
+cookie_manager = stx.CookieManager(key="office_order_cookie_manager")
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "logged_username" not in st.session_state:
+    st.session_state.logged_username = None
+if "logged_role" not in st.session_state:
+    st.session_state.logged_role = None
+if "login_token" not in st.session_state:
+    st.session_state.login_token = None
+if "show_registration" not in st.session_state:
+    st.session_state.show_registration = False
+if "last_tracked_module" not in st.session_state:
+    st.session_state.last_tracked_module = None
+
+
+def read_cookie(cookie_name):
+    try:
+        context = getattr(st, "context", None)
+        cookies = getattr(context, "cookies", None)
+        if cookies:
+            token = cookies.get(cookie_name)
+            if token:
+                return token
+    except Exception:
+        pass
+    try:
+        token = cookie_manager.get(cookie_name)
+        if token:
+            return token
+    except Exception:
+        pass
+    return None
+
+
+def restore_login():
+    """Restore login reliably from session, browser cookie, or one-time bootstrap token."""
+    if st.session_state.get("authenticated") and st.session_state.get("login_token"):
+        user = get_user_from_token(st.session_state.get("login_token"))
+        if user:
+            return True
+        st.session_state.authenticated = False
+
+    # 1) Browser cookies — preferred persistent login mechanism.
+    admin_token = read_cookie(ADMIN_COOKIE_NAME)
+    if admin_token:
+        admin = get_user_from_token(admin_token)
+        if admin and admin.get("role") == "admin":
+            st.session_state.authenticated = True
+            st.session_state.logged_username = admin["username"]
+            st.session_state.logged_role = "admin"
+            st.session_state.login_token = admin_token
+            st.session_state.login_mode = "admin"
+            return True
+
+    token = read_cookie(USER_COOKIE_NAME)
+    if token:
+        user = get_user_from_token(token)
+        if user and user.get("role") != "admin":
+            st.session_state.authenticated = True
+            st.session_state.logged_username = user["username"]
+            st.session_state.logged_role = user["role"]
+            st.session_state.login_token = token
+            st.session_state.login_mode = "user"
+            return True
+
+    # 2) One-time bootstrap token. This bridges the short delay that can occur
+    # when CookieManager has not yet exposed a newly-created browser cookie.
+    try:
+        bootstrap_token = st.query_params.get("auth_bootstrap")
+        if isinstance(bootstrap_token, list):
+            bootstrap_token = bootstrap_token[0] if bootstrap_token else None
+        if bootstrap_token:
+            user = get_user_from_token(bootstrap_token)
+            if user:
+                mode = "admin" if user.get("role") == "admin" else "user"
+                st.session_state.authenticated = True
+                st.session_state.logged_username = user["username"]
+                st.session_state.logged_role = user["role"]
+                st.session_state.login_token = bootstrap_token
+                st.session_state.login_mode = mode
+                try:
+                    st.query_params.pop("auth_bootstrap", None)
+                except Exception:
+                    pass
+                return True
+    except Exception:
+        pass
+
+    return False
+
+restore_login()
+
+
+# ============================================================
+# REGISTRATION SCREEN
+# ============================================================
+
+def registration_screen():
+    st.markdown("""
+    <div style="
+        text-align:center;
+        padding:18px;
+        border-radius:12px;
+        background:linear-gradient(135deg,#154360,#2874A6);
+        margin-bottom:20px;
+    ">
+        <h2 style="color:white;">📝 नया उपयोगकर्ता पंजीकरण</h2>
+        <p style="color:white;">राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        full_name = st.text_input("👤 पूरा नाम", key="reg_full_name")
+        mobile = st.text_input("📱 मोबाइल नंबर", max_chars=10, key="reg_mobile")
+        email = st.text_input("📧 Email Address", key="reg_email")
+
+    with col2:
+        username = st.text_input("🔑 Login ID / Username", key="reg_username")
+        password = st.text_input("🔒 Password", type="password", key="reg_password")
+        confirm_password = st.text_input(
+            "🔒 Confirm Password",
+            type="password",
+            key="reg_confirm_password",
+        )
+
+    st.info("यह सामान्य User Account है। Administrator Account केवल अलग Admin Login से संचालित होगा।")
+
+    if st.button("✅ Registration करें", use_container_width=True, key="register_user_button"):
+        full_name = full_name.strip()
+        mobile = mobile.strip()
+        email = email.strip().lower()
+        username = username.strip().lower()
+
+        if not full_name:
+            st.error("कृपया पूरा नाम भरें।")
+            return
+        if not re.fullmatch(r"[0-9]{10}", mobile):
+            st.error("कृपया 10 अंकों का मोबाइल नंबर भरें।")
+            return
+        if not re.fullmatch(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+            st.error("कृपया सही Email Address भरें।")
+            return
+        if not re.fullmatch(r"[a-zA-Z0-9_.-]{4,30}", username):
+            st.error("Login ID 4 से 30 characters की हो।")
+            return
+        if len(password) < 6:
+            st.error("Password कम से कम 6 characters का होना चाहिए।")
+            return
+        if password != confirm_password:
+            st.error("Password और Confirm Password समान नहीं हैं।")
+            return
+        if username_exists(username):
+            st.error("यह Login ID पहले से registered है।")
+            return
+
+        success, role = create_user(
+            full_name, mobile, email, username, password
+        )
+
+        if success:
+            st.success("Registration सफल रहा। अब Login करें।")
+            st.session_state.show_registration = False
+            st.rerun()
+        else:
+            st.error("Registration नहीं हो सका।")
+
+
+# ============================================================
+# LOGIN SCREEN
+# ============================================================
+
+def _clear_module_session_state():
+    """पुराने user का in-memory module data नए user को न मिले।"""
+    prefixes = (
+        "pl_", "inc_", "san_", "arr_",
+        "w_pl_", "w_inc_", "w_san_", "w_arr_",
+        "del_pl_", "del_inc_", "del_san_",
+    )
+    exact = {
+        "gen_sheet_sel", "arr_clear_confirm",
+        "pl_bundle_loaded", "inc_bundle_loaded",
+        "san_bundle_loaded", "arrear_bundle_loaded",
+    }
+    for key in list(st.session_state.keys()):
+        if key in exact or any(key.startswith(prefix) for prefix in prefixes):
+            try:
+                del st.session_state[key]
+            except Exception:
+                pass
+
+
+def _set_authenticated(user, token, mode):
+    # हर नए login पर पुराने user का in-memory working data हटाएँ।
+    _clear_module_session_state()
+    try:
+        st.query_params.pop("visitor_analytics", None)
+    except Exception:
+        pass
+
+    st.session_state.authenticated = True
+    st.session_state.logged_username = user["username"]
+    st.session_state.logged_role = user["role"]
+    st.session_state.login_token = token
+    st.session_state.login_mode = mode
+    st.session_state.show_registration = False
+    st.session_state.show_admin_recovery = False
+    st.session_state.last_tracked_module = None
+
+
+def user_login_screen():
+    st.markdown("""
+    <div style="text-align:center;padding:18px;border-radius:12px;background:linear-gradient(135deg,#1B4F72,#2E86C1);margin-bottom:20px;">
+        <h1 style="color:white;">👤 User Login</h1>
+        <h3 style="color:white;">राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    username = st.text_input("🔑 Login ID", key="user_login_username")
+    password = st.text_input("🔒 Password", type="password", key="user_login_password")
+
+    if st.button("🔓 User Login", use_container_width=True, key="user_login_button"):
+        username = username.strip().lower()
+        user = get_user(username)
+        if user is None or not verify_password(password, user["password_hash"], user["password_salt"]):
+            st.error("Login ID या Password गलत है।")
+            return
+        if user.get("role") == "admin":
+            st.warning("यह Administrator Account है। कृपया नीचे दिए गए 👑 Admin Login विकल्प का उपयोग करें।")
+            return
+
+        token = create_login_token(user["username"])
+        try:
+            cookie_manager.set(USER_COOKIE_NAME, token, expires_at=datetime.now() + timedelta(days=COOKIE_DAYS))
+        except Exception:
+            pass
+        _set_authenticated(user, token, "user")
+        update_login_information(user["username"])
+        save_activity(user["username"], "LOGIN", "Authentication", "Successful User login")
+        # CookieManager may need one browser round-trip. Keep a one-time
+        # bootstrap token so the very next rerun cannot lose authentication.
+        st.query_params["auth_bootstrap"] = token
+
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("📝 नया User Account बनाएँ", use_container_width=True, key="open_user_registration"):
+            st.session_state.show_registration = True
+            st.session_state.show_admin_login = False
+            st.rerun()
+    with c2:
+        if st.button("👑 Admin Login", use_container_width=True, key="open_admin_login"):
+            st.session_state.show_admin_login = True
+            st.session_state.show_registration = False
+            st.rerun()
+
+
+def admin_login_screen():
+    st.markdown("""
+    <div style="text-align:center;padding:18px;border-radius:12px;background:linear-gradient(135deg,#7D3C0C,#B9770E);margin-bottom:20px;">
+        <h1 style="color:white;">👑 Administrator Login</h1>
+        <h3 style="color:white;">केवल अधिकृत Administrator के लिए</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    admin = get_admin_user()
+    if not admin:
+        st.error("Administrator Account उपलब्ध नहीं है।")
+        return
+
+    username = st.text_input("👑 Admin Login ID", key="admin_login_username")
+    password = st.text_input("🔒 Admin Password", type="password", key="admin_login_password")
+
+    if st.button("👑 Admin Login करें", use_container_width=True, key="admin_login_button"):
+        username = username.strip().lower()
+        if username != admin["username"] or not verify_password(password, admin["password_hash"], admin["password_salt"]):
+            st.error("Admin Login ID या Password गलत है।")
+            return
+
+        token = create_login_token(admin["username"])
+        try:
+            cookie_manager.set(ADMIN_COOKIE_NAME, token, expires_at=datetime.now() + timedelta(days=COOKIE_DAYS))
+        except Exception:
+            pass
+        _set_authenticated(admin, token, "admin")
+        update_login_information(admin["username"])
+        save_activity(admin["username"], "ADMIN_LOGIN", "Authentication", "Successful Administrator login")
+        st.query_params["auth_bootstrap"] = token
+
+    st.markdown("---")
+    if st.button("🔑 Admin User ID / Password भूल गए?", use_container_width=True, key="open_admin_recovery"):
+        st.session_state.show_admin_recovery = True
+        st.session_state.show_admin_login = False
+        st.rerun()
+
+    if st.button("↩️ User Login पर वापस जाएँ", use_container_width=True, key="back_to_user_login"):
+        st.session_state.show_admin_login = False
+        st.session_state.show_admin_recovery = False
+        st.rerun()
+
+
+def admin_recovery_screen():
+    st.markdown("""
+    <div style="text-align:center;padding:18px;border-radius:12px;background:linear-gradient(135deg,#512E5F,#7D3C98);margin-bottom:20px;">
+        <h2 style="color:white;">🔑 Administrator Recovery</h2>
+        <p style="color:white;">Admin की पहचान सत्यापित करके नया Password निर्धारित करें</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    admin = get_admin_user()
+    if not admin:
+        st.error("Administrator Account उपलब्ध नहीं है।")
+        return
+
+    st.warning("सुरक्षा के लिए पुराना Password कभी प्रदर्शित नहीं किया जाएगा। सत्यापन सफल होने पर नया Password बनाया जाएगा।")
+    mobile = st.text_input("📱 Registered Mobile Number", max_chars=10, key="admin_recovery_mobile")
+    email = st.text_input("📧 Registered Email", key="admin_recovery_email")
+
+    if st.button("🔎 Admin ID सत्यापित करें", use_container_width=True, key="verify_admin_recovery"):
+        if mobile.strip() == admin["mobile"] and email.strip().lower() == admin["email"].lower():
+            st.session_state.admin_recovery_verified = True
+            st.success(f"Admin Login ID: {admin['username']}")
+        else:
+            st.session_state.admin_recovery_verified = False
+            st.error("Mobile Number और Email का मिलान नहीं हुआ।")
+
+    if st.session_state.get("admin_recovery_verified", False):
+        new_password = st.text_input("🔒 नया Admin Password", type="password", key="admin_recovery_new_password")
+        confirm_password = st.text_input("🔒 नया Password पुनः दर्ज करें", type="password", key="admin_recovery_confirm_password")
+        if st.button("🔄 Admin Password Reset करें", use_container_width=True, key="reset_admin_password"):
+            if len(new_password) < 6:
+                st.error("Password कम से कम 6 characters का होना चाहिए।")
+            elif new_password != confirm_password:
+                st.error("दोनों Password समान नहीं हैं।")
+            elif reset_user_password(admin["username"], new_password):
+                # सभी पुराने admin tokens निष्क्रिय करें।
+                conn = get_auth_connection()
+                conn.execute("UPDATE login_tokens SET is_active = 0 WHERE username = ?", (admin["username"],))
+                conn.commit()
+                conn.close()
+                st.session_state.admin_recovery_verified = False
+                st.success("Admin Password सफलतापूर्वक बदल दिया गया है। अब Admin Login करें।")
+                st.session_state.show_admin_recovery = False
+                st.session_state.show_admin_login = True
+                st.rerun()
+
+    if st.button("↩️ Admin Login पर वापस जाएँ", use_container_width=True, key="back_from_admin_recovery"):
+        st.session_state.show_admin_recovery = False
+        st.session_state.show_admin_login = True
+        st.session_state.admin_recovery_verified = False
+        st.rerun()
+
+
+# ============================================================
+# AUTHENTICATION GATE
+# ============================================================
+
+if "show_admin_login" not in st.session_state:
+    st.session_state.show_admin_login = False
+if "show_admin_recovery" not in st.session_state:
+    st.session_state.show_admin_recovery = False
+if "admin_recovery_verified" not in st.session_state:
+    st.session_state.admin_recovery_verified = False
+if "login_mode" not in st.session_state:
+    st.session_state.login_mode = None
+
+if not st.session_state.authenticated:
+    if st.session_state.show_admin_recovery:
+        admin_recovery_screen()
+    elif st.session_state.show_admin_login:
+        admin_login_screen()
+    elif st.session_state.show_registration:
+        registration_screen()
+        st.markdown("---")
+        if st.button("↩️ User Login पर वापस जाएँ", key="persistent_back_login"):
+            st.session_state.show_registration = False
+            st.rerun()
+    else:
+        user_login_screen()
+
+    # Login functions above may authenticate the current run. Only stop when
+    # authentication is still false.
+    if not st.session_state.authenticated:
+        st.stop()
+
+
+# ============================================================
+# LOGGED-IN USER BAR
+# ============================================================
+# ============================================================
+# LOGGED-IN USER BAR
+# ============================================================
+
+logged_user = get_user(
+    st.session_state.logged_username
+)
+
+if logged_user:
+
+    # --------------------------------------------------------
+    # ADMIN
+    # --------------------------------------------------------
+
+    if logged_user["role"] == "admin":
+
+        auth_col1, auth_col2, auth_col3, auth_col4 = st.columns(
+            [5, 2, 1.8, 1.2]
+        )
+
+        with auth_col1:
+
+            st.caption(
+                f"👤 **{logged_user['full_name']}** "
+                f"({logged_user['username']})"
+            )
+
+        with auth_col2:
+
+            st.caption(
+                "👑 Administrator"
+            )
+
+        with auth_col3:
+
+            if st.button(
+                "📊 Visitor Analytics",
+                key="open_visitor_analytics",
+                use_container_width=True
+            ):
+
+                st.query_params["visitor_analytics"] = "1"
+
+                st.rerun()
+
+        with auth_col4:
+
+            if st.button(
+                "🚪 Logout",
+                key="persistent_logout_admin",
+                use_container_width=True
+            ):
+
+                token = st.session_state.get(
+                    "login_token"
+                )
+
+                invalidate_token(token)
+
+                try:
+
+                    cookie_manager.delete(
+                        ADMIN_COOKIE_NAME
+                    )
+
+                except Exception:
+
+                    pass
+
+                save_activity(
+                    st.session_state.logged_username,
+                    "LOGOUT",
+                    "Authentication",
+                    "Admin logout"
+                )
+
+                # --------------------------------------------
+                # Clear authentication session
+                # --------------------------------------------
+
+                _clear_module_session_state()
+                try:
+                    st.query_params.pop("visitor_analytics", None)
+                except Exception:
+                    pass
+
+                st.session_state.authenticated = False
+
+                st.session_state.logged_username = None
+
+                st.session_state.logged_role = None
+
+                st.session_state.login_token = None
+
+                st.session_state.last_tracked_module = None
+
+                st.session_state.show_registration = False
+
+                st.session_state.show_admin_login = False
+
+                st.session_state.show_admin_recovery = False
+
+                st.session_state.admin_recovery_verified = False
+
+                st.session_state.login_mode = None
+
+                st.rerun()
+
+
+    # --------------------------------------------------------
+    # NORMAL USER
+    # --------------------------------------------------------
+
+    else:
+
+        auth_col1, auth_col2, auth_col3 = st.columns(
+            [6, 2, 1.2]
+        )
+
+        with auth_col1:
+
+            st.caption(
+                f"👤 **{logged_user['full_name']}** "
+                f"({logged_user['username']})"
+            )
+
+        with auth_col2:
+
+            st.caption(
+                "👤 User"
+            )
+
+        with auth_col3:
+
+            if st.button(
+                "🚪 Logout",
+                key="persistent_logout_user",
+                use_container_width=True
+            ):
+
+                token = st.session_state.get(
+                    "login_token"
+                )
+
+                invalidate_token(token)
+
+                try:
+
+                    cookie_manager.delete(
+                        USER_COOKIE_NAME
+                    )
+
+                except Exception:
+
+                    pass
+
+                save_activity(
+                    st.session_state.logged_username,
+                    "LOGOUT",
+                    "Authentication",
+                    "User logout"
+                )
+
+                # --------------------------------------------
+                # Clear authentication session
+                # --------------------------------------------
+
+                _clear_module_session_state()
+                try:
+                    st.query_params.pop("visitor_analytics", None)
+                except Exception:
+                    pass
+
+                st.session_state.authenticated = False
+
+                st.session_state.logged_username = None
+
+                st.session_state.logged_role = None
+
+                st.session_state.login_token = None
+
+                st.session_state.last_tracked_module = None
+
+                st.session_state.show_registration = False
+
+                st.session_state.show_admin_login = False
+
+                st.session_state.show_admin_recovery = False
+
+                st.session_state.admin_recovery_verified = False
+
+                st.session_state.login_mode = None
+
+                st.rerun()
+# ============================================================
+# END OF AUTHENTICATION SYSTEM
+# ============================================================
+
+
+# ============================================================
+# VISITOR ANALYTICS - ADMIN DASHBOARD
+# ============================================================
+
+VISITOR_DATA_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "visitor_data.csv"
+)
+
+
+def _visitor_get_session_id():
+    if "visitor_session_id" not in st.session_state:
+        st.session_state.visitor_session_id = str(uuid.uuid4())
+    return st.session_state.visitor_session_id
+
+
+def _visitor_record_visit(module_name="Unknown"):
+    """एक authenticated browser session/module visit record करें."""
+    session_id = _visitor_get_session_id()
+    session_key = f"visitor_recorded_{module_name}"
+    if st.session_state.get(session_key, False):
+        return
+    try:
+        file_exists = os.path.exists(VISITOR_DATA_FILE)
+
+        # पुराने visitor_data.csv (5-column format) को नए Username column में migrate करें।
+        if file_exists:
+            try:
+                with open(VISITOR_DATA_FILE, "r", newline="", encoding="utf-8-sig") as rf:
+                    existing_rows = list(csv.DictReader(rf))
+                fieldnames = ["Visitor ID", "Date", "Time", "Module", "Session ID", "Username"]
+                if existing_rows and "Username" not in existing_rows[0]:
+                    with open(VISITOR_DATA_FILE, "w", newline="", encoding="utf-8-sig") as wf:
+                        writer = csv.DictWriter(wf, fieldnames=fieldnames)
+                        writer.writeheader()
+                        for row in existing_rows:
+                            writer.writerow({
+                                "Visitor ID": row.get("Visitor ID", ""),
+                                "Date": row.get("Date", ""),
+                                "Time": row.get("Time", ""),
+                                "Module": row.get("Module", ""),
+                                "Session ID": row.get("Session ID", ""),
+                                "Username": row.get("Username", "")
+                            })
+            except Exception:
+                pass
+
+        with open(VISITOR_DATA_FILE, "a", newline="", encoding="utf-8-sig") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(["Visitor ID", "Date", "Time", "Module", "Session ID", "Username"])
+            now = datetime.now()
+            writer.writerow([
+                str(uuid.uuid4()),
+                now.strftime("%d-%m-%Y"),
+                now.strftime("%H:%M:%S"),
+                module_name,
+                session_id,
+                st.session_state.get("logged_username", "")
+            ])
+        st.session_state[session_key] = True
+    except Exception:
+        pass
+
+
+def _visitor_read_all():
+    if not os.path.exists(VISITOR_DATA_FILE):
+        return []
+    try:
+        with open(VISITOR_DATA_FILE, "r", newline="", encoding="utf-8-sig") as f:
+            return list(csv.DictReader(f))
+    except Exception:
+        return []
+
+
+def _admin_visitor_analytics_page():
+    """केवल Administrator के लिए पूर्ण Visitor/User Analytics."""
+    # Analytics खोलना भी एक visitor-session/module activity है।
+    _visitor_record_visit("Visitor Analytics")
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#154360,#1f618d);padding:18px;border-radius:12px;margin-bottom:18px;text-align:center;">
+        <h2 style="color:white;margin:0;">📊 Visitor Analytics & User Activity</h2>
+        <p style="color:#d6eaf8;margin:5px 0 0 0;">Registered Users, Visits और Module Activity</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    conn = get_auth_connection()
+    users = [dict(r) for r in conn.execute(
+        "SELECT id, full_name, mobile, email, username, role, created_at, last_login, login_count, visit_count, is_active FROM users ORDER BY id DESC"
+    ).fetchall()]
+    activities = [dict(r) for r in conn.execute(
+        "SELECT username, activity, module, activity_time, details FROM activity_log ORDER BY id DESC LIMIT 2000"
+    ).fetchall()]
+    module_summary = [dict(r) for r in conn.execute(
+        "SELECT module, COUNT(*) AS total FROM activity_log WHERE activity = 'MODULE_OPEN' GROUP BY module ORDER BY total DESC"
+    ).fetchall()]
+    conn.close()
+
+    visitor_rows = _visitor_read_all()
+    today = datetime.now().strftime("%d-%m-%Y")
+    total_users = len(users)
+    total_logins = sum(int(u.get("login_count") or 0) for u in users)
+    today_visits = sum(1 for r in visitor_rows if r.get("Date") == today)
+    unique_sessions = len({r.get("Session ID") for r in visitor_rows if r.get("Session ID")})
+    active_users = sum(1 for u in users if int(u.get("is_active") or 0) == 1)
+    total_module_opens = sum(int(r["total"]) for r in module_summary)
+
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    c1.metric("👥 Registered Users", total_users)
+    c2.metric("🔐 Total Logins", total_logins)
+    c3.metric("📅 आज की Visits", today_visits)
+    c4.metric("🔵 Unique Sessions", unique_sessions)
+    c5.metric("🟢 Active Users", active_users)
+    c6.metric("🧩 Module Opens", total_module_opens)
+
+    st.markdown("---")
+    tab1, tab2, tab3 = st.tabs(["👥 Users", "🧩 Module Activity", "🕒 Activity History"])
+
+    with tab1:
+        user_rows = [{
+            "नाम": u["full_name"], "मोबाइल": u["mobile"], "Email": u["email"],
+            "Login ID": u["username"], "Role": "Administrator" if u["role"] == "admin" else "User",
+            "Registration": u["created_at"], "Last Login": u["last_login"] or "-",
+            "Total Login": u["login_count"], "Visit Count": u["visit_count"]
+        } for u in users]
+        if user_rows:
+            st.dataframe(user_rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("अभी कोई registered user नहीं है।")
+
+    with tab2:
+        module_rows = [{"Module": r["module"], "कुल बार खोला गया": r["total"]} for r in module_summary]
+        if module_rows:
+            st.dataframe(module_rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("अभी module activity उपलब्ध नहीं है।")
+
+    with tab3:
+        activity_rows = [{
+            "Login ID": r["username"], "Activity": r["activity"],
+            "Module": r["module"] or "-", "समय": r["activity_time"],
+            "विवरण": r["details"] or ""
+        } for r in activities]
+        if activity_rows:
+            st.dataframe(activity_rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("अभी activity history उपलब्ध नहीं है।")
+
+    st.markdown("---")
+    st.subheader("📋 Visitor Session Records")
+    if visitor_rows:
+        st.dataframe(list(reversed(visitor_rows)), use_container_width=True, hide_index=True)
+        with open(VISITOR_DATA_FILE, "rb") as f:
+            st.download_button(
+                "⬇️ Visitor CSV डाउनलोड करें", data=f.read(),
+                file_name="visitor_report.csv", mime="text/csv",
+                key="download_admin_visitor_report"
+            )
+    else:
+        st.info("अभी visitor session record उपलब्ध नहीं है।")
+
+    if st.button("⬅️ मुख्य Dashboard पर वापस जाएँ", key="close_visitor_analytics"):
+        st.query_params.pop("visitor_analytics", None)
+        st.rerun()
+
+
+if st.query_params.get("visitor_analytics") == "1":
+    if st.session_state.get("logged_role") == "admin":
+        _admin_visitor_analytics_page()
+    else:
+        # A stale Analytics URL must never trap a normal user on the
+        # Administrator-only page.
+        try:
+            st.query_params.pop("visitor_analytics", None)
+        except Exception:
+            pass
+    if st.session_state.get("logged_role") == "admin":
+        st.stop()
+
+
+# 2. डेटा फ़ाइल पाथ्स एवं USER-WISE STORAGE
+# ============================================================
+# प्रत्येक authenticated user को अपने अलग folder में module data मिलेगा।
+# पुराने shared JSON files को नए users के लिए load नहीं किया जाता,
+# ताकि एक user दूसरे user का saved working data न देख सके।
+# ============================================================
+USER_DATA_ROOT = os.path.join("output", "user_data")
+os.makedirs(USER_DATA_ROOT, exist_ok=True)
+
+def _safe_username_for_path(username):
+    value = str(username or "unknown_user").strip().lower()
+    value = re.sub(r"[^a-zA-Z0-9_.-]", "_", value)
+    return value[:80] or "unknown_user"
+
+def get_current_user_data_dir():
+    username = st.session_state.get("logged_username")
+    if not username:
+        return os.path.join(USER_DATA_ROOT, "_unauthenticated")
+    folder = os.path.join(USER_DATA_ROOT, _safe_username_for_path(username))
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+CURRENT_USER_DATA_DIR = get_current_user_data_dir()
+
+PL_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "pl_data.json")
+INC_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "increment_data.json")
+SAN_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "sanchalan_data.json")
+ARREAR_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "arrear_data.json")
+
+# Master lists shared रहेंगे; इनमें user-specific working data नहीं है।
 MASTER_VENDORS_FILE = "master_vendors.json"
 MASTER_SCHOOLS_FILE = "master_schools.json"
 MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
@@ -34,7 +1101,8 @@ def load_json_data(file_path, default_val=None):
     return default_val
 
 def save_json_data(file_path, data):
-    os.makedirs("output", exist_ok=True)
+    folder = os.path.dirname(os.path.abspath(file_path))
+    os.makedirs(folder, exist_ok=True)
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -401,6 +1469,27 @@ st.markdown("""
 
 params = st.query_params
 active_page = params.get("page", "dashboard")
+
+# Record which module the logged-in user is currently using.
+# This does not change any module logic; it only writes an activity row.
+if st.session_state.get("authenticated") and st.session_state.get("logged_username"):
+    _module_names = {
+        "dashboard": "Main Dashboard",
+        "pl_surrender": "PL Surrender",
+        "increment_order": "Annual Increment",
+        "sanchalan_portal": "Sanchalan Portal",
+        "salary_arrear": "Salary Arrear",
+    }
+    _module_name = _module_names.get(str(active_page), str(active_page))
+    if st.session_state.get("last_tracked_module") != _module_name:
+        save_activity(
+            st.session_state["logged_username"],
+            "MODULE_OPEN",
+            _module_name,
+            f"page={active_page}",
+        )
+        st.session_state["last_tracked_module"] = _module_name
+        _visitor_record_visit(_module_name)
 
 # =============================================================================
 # पृष्ठ 1: मुख्य डैशबोर्ड
