@@ -13,7 +13,7 @@ from typing import Any, Optional
 # 1. PAGE CONFIGURATION
 # ============================================================
 st.set_page_config(
-    page_title="राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर सॉफ्टवेयर",
+    page_title="Rajasthan Government Office Order Generator",
     page_icon="📜",
     layout="wide"
 )
