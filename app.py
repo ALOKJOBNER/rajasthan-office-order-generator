@@ -4,898 +4,39 @@ import math
 import os
 import json
 import calendar
-import uuid
-import re
-from datetime import datetime, date, timedelta
-from typing import Any, Optional
+from datetime import datetime, date
 
-# ============================================================
-# 1. PAGE CONFIGURATION
-# ============================================================
+# 1. पेज कॉन्फ़िगरेशन
 st.set_page_config(
     page_title="राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर सॉफ्टवेयर",
     page_icon="📜",
     layout="wide"
 )
 
-# Global dark app shell is injected before both authentication and dashboard.
-st.markdown("""
-<style>
-html, body, [data-testid="stApp"], [data-testid="stAppViewContainer"],
-[data-testid="stAppViewBlockContainer"], [data-testid="stMainBlockContainer"],
-section[data-testid="stMain"], main, div[data-testid="stMain"] {
-    background:#06162b !important; color:#ffffff !important;
-}
-[data-testid="stAppViewContainer"] {
-    background:linear-gradient(135deg,#06162b 0%,#0b2b4a 55%,#123e68 100%) !important;
-}
-[data-testid="stAppViewBlockContainer"], [data-testid="stMainBlockContainer"] { background:transparent !important; }
-.element-container, [data-testid="stAppViewBlockContainer"], [data-testid="stMainBlockContainer"], [data-stale="true"] {
-    opacity:1 !important; visibility:visible !important; filter:none !important; transition:none !important;
-}
-header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] { background:transparent !important; }
-</style>
-""", unsafe_allow_html=True)
-
-
-# Shared visual assets for Login and Dashboard.
-def _find_developer_photo():
-    base_dir=os.path.dirname(os.path.abspath(__file__))
-    for ext in (".jpg",".png",".jpeg",".JPG",".PNG",".JPEG"):
-        path=os.path.join(base_dir,"aloksingh"+ext)
-        if os.path.isfile(path):
-            return path,{".jpg":"image/jpeg",".jpeg":"image/jpeg",".png":"image/png"}.get(ext.lower(),"image/jpeg")
-    return "","image/jpeg"
-
-def _shared_image_base64():
-    path,mime=_find_developer_photo()
-    if not path: return "","image/jpeg"
-    try:
-        with open(path,"rb") as fh: return base64.b64encode(fh.read()).decode("ascii"),mime
-    except Exception: return "","image/jpeg"
-
-def _shared_sun_rays_svg(css_class="spinning-rays"):
-    cx=cy=130; inner_r=67; polygons=[]
-    for i in range(24):
-        deg=i*15; outer_r=122 if i%2==0 else 96; half_base=5.0 if i%2==0 else 3.5; color="#f1c40f" if i%2==0 else "#ff9f43"
-        tip=math.radians(deg); left=math.radians(deg-half_base); right=math.radians(deg+half_base)
-        polygons.append(f'<polygon points="{cx+inner_r*math.cos(left):.1f},{cy+inner_r*math.sin(left):.1f} {cx+outer_r*math.cos(tip):.1f},{cy+outer_r*math.sin(tip):.1f} {cx+inner_r*math.cos(right):.1f},{cy+inner_r*math.sin(right):.1f}" fill="{color}"/>')
-    return f'<svg class="{css_class}" viewBox="0 0 260 260" width="260" height="260" preserveAspectRatio="xMidYMid meet"><circle cx="130" cy="130" r="67" stroke="#f39c12" stroke-width="3" fill="none"/>{"".join(polygons)}</svg>'
-
-img_b64,img_mime=_shared_image_base64()
-rays_svg_html=_shared_sun_rays_svg("spinning-rays")
-
-# ============================================================
-# INTEGRATED SUPABASE + AUTHENTICATION LAYER
-# ------------------------------------------------------------
-# इस app में अब अलग supabase_service.py की आवश्यकता नहीं है।
-# मूल चारों module का UI/calculation code नीचे यथावत रखा गया है।
-#
-# Authentication:
-#   - User Login
-#   - Administrator Login
-#   - User/Admin Forgot User ID + Password recovery
-#   - One login for the complete application
-#
-# Storage:
-#   - profiles: user identity/role
-#   - module_data: user-wise module data
-#   - module_data reserved event records: activity/visitor analytics
-#
-# IMPORTANT:
-#   SUPABASE_SERVICE_ROLE_KEY केवल Streamlit server-side secret है।
-#   इसे कभी client-side HTML/JS में न भेजें।
-# ============================================================
-
-try:
-    from supabase import create_client, Client
-except Exception as exc:
-    st.error(
-        "Supabase Python package उपलब्ध नहीं है। "
-        "requirements.txt में 'supabase' जोड़ें और application restart करें।"
-    )
-    st.stop()
-
-def _load_local_dotenv():
-    """Load a local .env file without requiring python-dotenv.
-
-    Streamlit/Python does not automatically read a project .env file.
-    Existing OS environment variables are never overwritten.
-    """
-    candidates = [
-        os.path.join(os.getcwd(), ".env"),
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"),
-    ]
-    seen = set()
-    for env_path in candidates:
-        env_path = os.path.abspath(env_path)
-        if env_path in seen or not os.path.isfile(env_path):
-            continue
-        seen.add(env_path)
-        try:
-            with open(env_path, "r", encoding="utf-8") as fh:
-                for raw_line in fh:
-                    line = raw_line.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    if line.startswith("export "):
-                        line = line[7:].strip()
-                    if "=" not in line:
-                        continue
-                    key, value = line.split("=", 1)
-                    key = key.strip()
-                    value = value.strip()
-                    if not key:
-                        continue
-                    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("\"", "'"):
-                        value = value[1:-1]
-                    os.environ.setdefault(key, value)
-        except Exception:
-            # .env is optional; Streamlit Secrets/environment variables remain usable.
-            pass
-
-_load_local_dotenv()
-
-
-def _secret(name: str, default: str = "") -> str:
-    """Streamlit Secrets -> local .env/OS environment fallback."""
-    try:
-        value = st.secrets.get(name)
-        if value:
-            return str(value)
-    except Exception:
-        pass
-    return os.getenv(name, default)
-
-SUPABASE_URL = _secret("SUPABASE_URL")
-SUPABASE_KEY = _secret("SUPABASE_KEY")
-SUPABASE_SERVICE_ROLE_KEY = _secret("SUPABASE_SERVICE_ROLE_KEY")
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error(
-        "SUPABASE_URL / SUPABASE_KEY उपलब्ध नहीं हैं। "
-        "Streamlit Secrets या local environment में दोनों values सेट करें।"
-    )
-    st.stop()
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-_service_supabase: Optional[Client] = None
-
-def _get_service_client() -> Client:
-    global _service_supabase
-    if _service_supabase is None:
-        if not SUPABASE_SERVICE_ROLE_KEY:
-            raise RuntimeError(
-                "SUPABASE_SERVICE_ROLE_KEY उपलब्ध नहीं है। "
-                "यह server-side secret आवश्यक है।"
-            )
-        _service_supabase = create_client(
-            SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-        )
-    return _service_supabase
-
-def _safe_text(value: Any) -> str:
-    return "" if value is None else str(value)
-
-def _profile_by_username(username: str) -> Optional[dict]:
-    username = _safe_text(username).strip().lower()
-    if not username:
-        return None
-    response = (
-        _get_service_client()
-        .table("profiles")
-        .select("user_id,username,full_name,address,mobile,email,role,is_active")
-        .eq("username", username)
-        .maybe_single()
-        .execute()
-    )
-    return response.data if getattr(response, "data", None) else None
-
-def _profile_by_identity(mobile: str, email: str) -> Optional[dict]:
-    mobile = _safe_text(mobile).strip()
-    email = _safe_text(email).strip().lower()
-    if not mobile or not email:
-        return None
-    response = (
-        _get_service_client()
-        .table("profiles")
-        .select("user_id,username,full_name,address,mobile,email,role,is_active")
-        .eq("mobile", mobile)
-        .eq("email", email)
-        .maybe_single()
-        .execute()
-    )
-    return response.data if getattr(response, "data", None) else None
-
-def _profile_by_email(email: str) -> Optional[dict]:
-    email = _safe_text(email).strip().lower()
-    if not email:
-        return None
-    response = (
-        _get_service_client()
-        .table("profiles")
-        .select("user_id,username,full_name,address,mobile,email,role,is_active")
-        .eq("email", email)
-        .maybe_single()
-        .execute()
-    )
-    return response.data if getattr(response, "data", None) else None
-
-def _set_supabase_session(access_token: str, refresh_token: str):
-    if not access_token or not refresh_token:
-        raise RuntimeError("Supabase Auth session tokens उपलब्ध नहीं हैं।")
-    response = supabase.auth.set_session(access_token, refresh_token)
-    session = getattr(response, "session", None)
-    if session is not None:
-        st.session_state.supabase_access_token = getattr(
-            session, "access_token", access_token
-        )
-        st.session_state.supabase_refresh_token = getattr(
-            session, "refresh_token", refresh_token
-        )
-    else:
-        st.session_state.supabase_access_token = access_token
-        st.session_state.supabase_refresh_token = refresh_token
-
-def _supabase_password_login(profile: dict, password: str):
-    response = supabase.auth.sign_in_with_password({
-        "email": profile["email"],
-        "password": password,
-    })
-    user = getattr(response, "user", None)
-    session = getattr(response, "session", None)
-    if user is None or session is None:
-        raise RuntimeError("Supabase Auth session प्राप्त नहीं हुआ।")
-    _set_supabase_session(
-        getattr(session, "access_token", None),
-        getattr(session, "refresh_token", None),
-    )
-    return user
-
-def _create_supabase_user_and_profile(
-    full_name: str,
-    address: str,
-    mobile: str,
-    email: str,
-    username: str,
-    password: str,
-    role: str = "user",
-):
-    """
-    Registration को Supabase Auth + profiles दोनों में एक transaction-like
-    sequence में तैयार करता है। यदि profile पहले से है तो उसे sync करता है।
-    """
-    service = _get_service_client()
-
-    existing_profile = _profile_by_username(username)
-    if existing_profile:
-        raise RuntimeError("यह Login ID पहले से registered है।")
-
-    # Email duplicate check पहले.
-    existing_email_profile = _profile_by_email(email)
-    if existing_email_profile:
-        raise RuntimeError("यह Email पहले से registered है।")
-
-    # Supabase Auth user create.
-    auth_response = service.auth.admin.create_user({
-        "email": email,
-        "password": password,
-        "email_confirm": True,
-        "user_metadata": {
-            "username": username,
-            "full_name": full_name,
-            "address": address,
-            "mobile": mobile,
-            "role": role,
-        },
-    })
-    auth_user = getattr(auth_response, "user", None)
-    if auth_user is None:
-        raise RuntimeError("Supabase Auth User create नहीं हुआ।")
-
-    user_id = str(auth_user.id)
-
-    profile_payload = {
-        "user_id": user_id,
-        "username": username,
-        "full_name": full_name,
-        "address": address,
-        "mobile": mobile,
-        "email": email,
-        "role": role,
-        "is_active": True,
-    }
-
-    try:
-        service.table("profiles").upsert(
-            profile_payload, on_conflict="user_id"
-        ).execute()
-    except Exception:
-        # Auth user बना लेकिन profile नहीं बना तो orphan account न रहे।
-        try:
-            service.auth.admin.delete_user(user_id)
-        except Exception:
-            pass
-        raise
-
-    return profile_payload
-
-def _sync_profile_from_auth_user(
-    username: str,
-    full_name: str,
-    address: str,
-    mobile: str,
-    email: str,
-    role: str = "user",
-):
-    """Existing Supabase Auth user के लिए profiles row ensure/update."""
-    service = _get_service_client()
-    profile = _profile_by_username(username)
-    if profile:
-        payload = {
-            "full_name": full_name,
-            "address": address,
-            "mobile": mobile,
-            "email": email,
-            "role": role,
-            "is_active": True,
-        }
-        service.table("profiles").update(payload).eq(
-            "user_id", str(profile["user_id"])
-        ).execute()
-        return _profile_by_username(username)
-
-    # Existing Auth account को email से खोजने का प्रयत्न.
-    try:
-        users_response = service.auth.admin.list_users()
-        users = getattr(users_response, "users", None) or []
-        auth_user = next(
-            (
-                u for u in users
-                if _safe_text(getattr(u, "email", "")).strip().lower()
-                == email.lower()
-            ),
-            None,
-        )
-    except Exception:
-        auth_user = None
-
-    if auth_user is None:
-        return None
-
-    user_id = str(auth_user.id)
-    payload = {
-        "user_id": user_id,
-        "username": username,
-        "full_name": full_name,
-        "address": address,
-        "mobile": mobile,
-        "email": email,
-        "role": role,
-        "is_active": True,
-    }
-    service.table("profiles").upsert(
-        payload, on_conflict="user_id"
-    ).execute()
-    return payload
-
-
-# ============================================================
-# LEGACY SQLITE -> SUPABASE ONE-TIME LOGIN MIGRATION
-# ------------------------------------------------------------
-# पुराने app.py में users/password_hash/password_salt SQLite में थे।
-# पहली बार पुराने credentials से login करने पर वही password verify करके
-# Supabase Auth account/profile बनाया जाता है। Plain password कहीं save नहीं होता।
-# ============================================================
-import sqlite3
-
-LEGACY_AUTH_DB = os.path.join("output", "user_auth.db")
-
-def _legacy_connection():
-    if not os.path.isfile(LEGACY_AUTH_DB):
-        return None
-    conn = sqlite3.connect(LEGACY_AUTH_DB, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def _legacy_user_by_username(username):
-    conn = _legacy_connection()
-    if conn is None:
-        return None
-    try:
-        row = conn.execute(
-            "SELECT * FROM users WHERE username = ? AND is_active = 1 LIMIT 1",
-            (_safe_text(username).strip().lower(),),
-        ).fetchone()
-        return dict(row) if row else None
-    finally:
-        conn.close()
-
-def _legacy_user_by_identity(mobile, email, role=None):
-    conn = _legacy_connection()
-    if conn is None:
-        return None
-    try:
-        sql = "SELECT * FROM users WHERE mobile = ? AND lower(email) = ? AND is_active = 1"
-        params = [_safe_text(mobile).strip(), _safe_text(email).strip().lower()]
-        if role:
-            sql += " AND role = ?"
-            params.append(role)
-        sql += " ORDER BY id LIMIT 1"
-        row = conn.execute(sql, params).fetchone()
-        return dict(row) if row else None
-    finally:
-        conn.close()
-
-def _legacy_password_ok(user, password):
-    if not user or not password:
-        return False
-    try:
-        salt = user.get("password_salt", "")
-        stored = user.get("password_hash", "")
-        calculated = __import__("hashlib").pbkdf2_hmac(
-            "sha256", password.encode("utf-8"), salt.encode("utf-8"), 200000
-        ).hex()
-        return __import__("secrets").compare_digest(calculated, stored)
-    except Exception:
-        return False
-
-def _find_auth_user_by_email(email):
-    try:
-        users_response = _get_service_client().auth.admin.list_users()
-        users = getattr(users_response, "users", None) or []
-        return next(
-            (u for u in users if _safe_text(getattr(u, "email", "")).strip().lower() == _safe_text(email).strip().lower()),
-            None,
-        )
-    except Exception:
-        return None
-
-def _migrate_legacy_user_to_supabase(username, password):
-    legacy = _legacy_user_by_username(username)
-    if not legacy or not _legacy_password_ok(legacy, password):
-        return None
-
-    existing_profile = _profile_by_username(username)
-    if existing_profile:
-        # Legacy password को Supabase Auth में एक बार synchronize करें।
-        # user_id सीधे profile से लिया जाता है; email lookup पर निर्भर नहीं।
-        try:
-            legacy_role = _safe_text(legacy.get("role") or "user").strip().lower()
-            if legacy_role not in ("user", "admin"):
-                legacy_role = "user"
-            _get_service_client().auth.admin.update_user_by_id(
-                str(existing_profile["user_id"]),
-                {
-                    "password": password,
-                    "email": _safe_text(legacy.get("email")).strip().lower(),
-                    "email_confirm": True,
-                    "user_metadata": {
-                        "username": _safe_text(legacy.get("username")).strip().lower(),
-                        "full_name": legacy.get("full_name", ""),
-                        "mobile": legacy.get("mobile", ""),
-                        "role": legacy_role,
-                    },
-                },
-            )
-            synced = {
-                "full_name": legacy.get("full_name", ""),
-                "address": legacy.get("address", "") if "address" in legacy else existing_profile.get("address", ""),
-                "mobile": legacy.get("mobile", ""),
-                "email": _safe_text(legacy.get("email")).strip().lower(),
-                "role": legacy_role,
-                "is_active": True,
-            }
-            _get_service_client().table("profiles").update(synced).eq(
-                "user_id", str(existing_profile["user_id"])
-            ).execute()
-            existing_profile.update(synced)
-        except Exception:
-            # Auth sync failure is surfaced later by the login attempt; do not
-            # silently change the original module/UI behavior.
-            pass
-        return existing_profile
-
-    email = _safe_text(legacy.get("email")).strip().lower()
-    auth_user = _find_auth_user_by_email(email)
-
-    if auth_user is None:
-        auth_response = _get_service_client().auth.admin.create_user({
-            "email": email,
-            "password": password,
-            "email_confirm": True,
-            "user_metadata": {
-                "username": legacy["username"],
-                "full_name": legacy.get("full_name", ""),
-                "mobile": legacy.get("mobile", ""),
-                "role": legacy.get("role", "user"),
-            },
-        })
-        auth_user = getattr(auth_response, "user", None)
-        if auth_user is None:
-            raise RuntimeError("पुराने account का Supabase Auth migration नहीं हो सका।")
-    else:
-        _get_service_client().auth.admin.update_user_by_id(
-            str(auth_user.id), {"password": password, "email": email}
-        )
-
-    profile = {
-        "user_id": str(auth_user.id),
-        "username": _safe_text(legacy.get("username")).strip().lower(),
-        "full_name": legacy.get("full_name", ""),
-        "address": legacy.get("address", "") if "address" in legacy else "",
-        "mobile": legacy.get("mobile", ""),
-        "email": email,
-        "role": legacy.get("role", "user"),
-        "is_active": True,
-    }
-    _get_service_client().table("profiles").upsert(profile, on_conflict="user_id").execute()
-    return profile
-
-def _legacy_admin_exists():
-    conn = _legacy_connection()
-    if conn is None:
-        return False
-    try:
-        row = conn.execute(
-            "SELECT id FROM users WHERE role='admin' AND is_active=1 ORDER BY id LIMIT 1"
-        ).fetchone()
-        return row is not None
-    finally:
-        conn.close()
-
-def _save_module_data(username: str, module: str, data: dict):
-    username = _safe_text(username).strip().lower()
-    if not username:
-        raise RuntimeError("Current logged-in username उपलब्ध नहीं है।")
-    cached = st.session_state.get("logged_profile") or {}
-    if str(cached.get("username", "")).strip().lower() == username and cached.get("user_id"):
-        profile = dict(cached)
-    else:
-        profile = _profile_by_username(username)
-    if not profile:
-        raise RuntimeError(f"Supabase profiles में username '{username}' नहीं मिला।")
-    if not profile.get("is_active", True):
-        raise RuntimeError("Supabase user profile inactive है।")
-    user_id = str(profile.get("user_id") or st.session_state.get("supabase_user_id") or "").strip()
-    if not user_id:
-        raise RuntimeError("Current Supabase user_id उपलब्ध नहीं है।")
-    table = _get_service_client().table("module_data")
-    payload = {"user_id": user_id, "module": str(module), "data": data}
-    try:
-        response = table.upsert(payload, on_conflict="user_id,module").execute()
-    except Exception as first_error:
-        try:
-            existing = table.select("id").eq("user_id", user_id).eq("module", str(module)).order("created_at", desc=True).limit(1).execute()
-            rows = getattr(existing, "data", None) or []
-            if rows:
-                response = table.update({"data": data, "updated_at": datetime.now().isoformat()}).eq("id", rows[0]["id"]).execute()
-            else:
-                response = table.insert(payload).execute()
-        except Exception as second_error:
-            raise RuntimeError(f"Supabase {module} save failed: {second_error}. First upsert error: {first_error}") from second_error
-    verify = table.select("user_id,module,data").eq("user_id", user_id).eq("module", str(module)).limit(1).execute()
-    rows = getattr(verify, "data", None) or []
-    if not rows:
-        raise RuntimeError("Supabase write हुआ लेकिन read-back verification में record नहीं मिला।")
-    return response
-
-# Public compatibility name used by the arrear module and future module
-# save hooks. It intentionally delegates to the same Supabase user-wise
-# persistence function used by PL, Increment and Sanchalan.
-def save_module_data_for_local_user(username: str, module: str, data: dict):
-    return _save_module_data(username, module, data)
-
-def load_module_data_for_local_user(username: str, module: str) -> Optional[dict]:
-    return _read_module_data(username, module)
-
-def _read_module_data(username: str, module: str) -> Optional[dict]:
-    profile = _profile_by_username(username)
-    if not profile:
-        return None
-    response = (
-        _get_service_client()
-        .table("module_data")
-        .select("id,user_id,module,data,created_at,updated_at")
-        .eq("user_id", str(profile["user_id"]))
-        .eq("module", module)
-        .order("created_at", desc=True)
-        .limit(1)
-        .execute()
-    )
-    rows = getattr(response, "data", None) or []
-    return rows[0].get("data") if rows else None
-
-def _delete_module_data(username: str, module: str):
-    profile = _profile_by_username(username)
-    if not profile:
-        return
-    _get_service_client().table("module_data").delete().eq(
-        "user_id", str(profile["user_id"])
-    ).eq("module", module).execute()
-
-# ------------------------------------------------------------
-# Reserved event records in module_data
-# ------------------------------------------------------------
-def _event_insert(prefix: str, data: dict):
-    username = _safe_text(st.session_state.get("logged_username")).strip().lower()
-    if not username:
-        return
-    profile = _profile_by_username(username)
-    if not profile:
-        return
-    event_module = f"{prefix}{uuid.uuid4()}"
-    payload = {
-        "user_id": str(profile["user_id"]),
-        "module": event_module,
-        "data": data,
-    }
-    try:
-        _get_service_client().table("module_data").insert(payload).execute()
-    except Exception:
-        # Analytics कभी मुख्य module को रोकने का कारण नहीं बनेगा।
-        pass
-
-def _read_events(prefix: str) -> list[dict]:
-    try:
-        response = (
-            _get_service_client()
-            .table("module_data")
-            .select("user_id,module,data,created_at,updated_at")
-            .like("module", f"{prefix}%")
-            .order("created_at", desc=True)
-            .limit(5000)
-            .execute()
-        )
-        return getattr(response, "data", None) or []
-    except Exception:
-        return []
-
-def _all_profiles() -> list[dict]:
-    try:
-        response = (
-            _get_service_client()
-            .table("profiles")
-            .select("user_id,username,full_name,address,mobile,email,role,is_active")
-            .order("username")
-            .execute()
-        )
-        return getattr(response, "data", None) or []
-    except Exception:
-        return []
-
-# ============================================================
-# APPLICATION SESSION STATE
-# ============================================================
-_STATE_DEFAULTS = {
-    "authenticated": False,
-    "logged_username": None,
-    "logged_role": None,
-    "login_mode": None,
-    "supabase_user_id": None,
-    "supabase_access_token": None,
-    "supabase_refresh_token": None,
-    "show_registration": False,
-    "show_admin_login": False,
-    "show_admin_recovery": False,
-    "show_user_recovery": False,
-    "recovery_verified": False,
-    "recovery_mode": None,
-    "recovery_email": None,
-    "recovery_otp_sent": False,
-    "recovery_profile": None,
-    "recovery_user_id": None,
-    "password_recovery_active": False,
-    "recovery_callback_error": None,
-    "last_tracked_module": None,
-    "visitor_session_id": str(uuid.uuid4()),
-    "logged_profile": None,
-}
-
-for _key, _default in _STATE_DEFAULTS.items():
-    if _key not in st.session_state:
-        st.session_state[_key] = _default
-
-def _clear_module_session_state():
-    """User बदलने पर पुराने user का in-memory module data हटाएँ।"""
-    prefixes = (
-        "pl_", "inc_", "san_", "arr_",
-        "w_pl_", "w_inc_", "w_san_", "w_arr_",
-        "del_pl_", "del_inc_", "del_san_",
-    )
-    exact = {
-        "gen_sheet_sel", "arr_clear_confirm",
-        "pl_bundle_loaded", "inc_bundle_loaded",
-        "san_bundle_loaded", "arrear_bundle_loaded",
-    }
-    for key in list(st.session_state.keys()):
-        if key in exact or any(key.startswith(prefix) for prefix in prefixes):
-            try:
-                del st.session_state[key]
-            except Exception:
-                pass
-
-def _set_authenticated(profile: dict, auth_user=None):
-    _clear_module_session_state()
-    st.session_state.authenticated = True
-    st.session_state.logged_username = profile["username"]
-    st.session_state.logged_role = profile.get("role", "user")
-    st.session_state.login_mode = (
-        "admin" if profile.get("role") == "admin" else "user"
-    )
-    st.session_state.last_tracked_module = None
-    st.session_state.logged_profile = dict(profile)
-    if auth_user is not None:
-        st.session_state.supabase_user_id = str(auth_user.id)
-    else:
-        st.session_state.supabase_user_id = str(profile["user_id"])
-
-    # A previous Admin Visitor Analytics URL must never leak into a new login.
-    # Always start a newly authenticated session on the Main Dashboard.
-    try:
-        st.query_params.clear()
-        st.query_params["page"] = "dashboard"
-    except Exception:
-        pass
-
-def _clear_auth_state():
-    _clear_module_session_state()
-    try:
-        supabase.auth.sign_out()
-    except Exception:
-        pass
-    for key, value in {
-        "authenticated": False,
-        "logged_username": None,
-        "logged_role": None,
-        "login_mode": None,
-        "supabase_user_id": None,
-        "supabase_access_token": None,
-        "supabase_refresh_token": None,
-        "last_tracked_module": None,
-        "recovery_verified": False,
-        "recovery_mode": None,
-        "recovery_email": None,
-        "recovery_otp_sent": False,
-        "recovery_profile": None,
-        "recovery_user_id": None,
-        "password_recovery_active": False,
-        "logged_profile": None,
-    }.items():
-        st.session_state[key] = value
-
-def _record_activity(activity: str, module: str = "Authentication", details: str = ""):
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    session_id = st.session_state.get("visitor_session_id") or str(uuid.uuid4())
-    _event_insert("__activity__", {
-        "username": st.session_state.get("logged_username", ""),
-        "activity": activity,
-        "module": module,
-        "activity_time": now,
-        "details": details,
-        "session_id": session_id,
-    })
-
-def _record_visitor(module_name: str):
-    session_id = st.session_state.get("visitor_session_id") or str(uuid.uuid4())
-    now = datetime.now()
-    _event_insert("__visitor__", {
-        "Visitor ID": str(uuid.uuid4()),
-        "Date": now.strftime("%d-%m-%Y"),
-        "Time": now.strftime("%H:%M:%S"),
-        "Module": module_name,
-        "Session ID": session_id,
-        "Username": st.session_state.get("logged_username", ""),
-    })
-
-# Compatibility names used by the unchanged module code.
-def save_activity(username, activity, module=None, details=None):
-    if not username:
-        return
-    old_username = st.session_state.get("logged_username")
-    st.session_state.logged_username = username
-    try:
-        _record_activity(activity, module or "Authentication", details or "")
-    finally:
-        st.session_state.logged_username = old_username
-
-def _visitor_get_session_id():
-    if not st.session_state.get("visitor_session_id"):
-        st.session_state.visitor_session_id = str(uuid.uuid4())
-    return st.session_state.visitor_session_id
-
-def _visitor_record_visit(module_name="Unknown"):
-    session_key = f"visitor_recorded_{module_name}"
-    if st.session_state.get(session_key, False):
-        return
-    _record_visitor(module_name)
-    st.session_state[session_key] = True
-
-# ============================================================
-# USER-WISE DATA STORAGE COMPATIBILITY LAYER
-# ------------------------------------------------------------
-# मूल modules save_json_data/load_json_data ही इस्तेमाल करते हैं।
-# इसलिए module UI/code को छुए बिना इन functions को Supabase-aware बनाया गया है।
-# ============================================================
-USER_DATA_ROOT = os.path.join("output", "user_data")
-os.makedirs(USER_DATA_ROOT, exist_ok=True)
-
-def _safe_username_for_path(username):
-    value = str(username or "unknown_user").strip().lower()
-    value = re.sub(r"[^a-zA-Z0-9_.-]", "_", value)
-    return value[:80] or "unknown_user"
-
-def get_current_user_data_dir():
-    username = st.session_state.get("logged_username")
-    if not username:
-        return os.path.join(USER_DATA_ROOT, "_unauthenticated")
-    folder = os.path.join(USER_DATA_ROOT, _safe_username_for_path(username))
-    os.makedirs(folder, exist_ok=True)
-    return folder
-
-CURRENT_USER_DATA_DIR = get_current_user_data_dir()
-PL_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "pl_data.json")
-INC_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "increment_data.json")
-SAN_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "sanchalan_data.json")
-ARREAR_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "arrear_data.json")
-
+# 2. डेटा फ़ाइल पाथ्स एवं ऑटो-लोडिंग लॉजिक
+PL_DATA_FILE = os.path.join("output", "saved_pl_data.json")
+INC_DATA_FILE = os.path.join("output", "saved_increment_data.json")
+SAN_DATA_FILE = os.path.join("output", "saved_sanchalan_data.json")
+ARREAR_DATA_FILE = os.path.join("output", "saved_arrear_data.json")
 MASTER_VENDORS_FILE = "master_vendors.json"
 MASTER_SCHOOLS_FILE = "master_schools.json"
 MASTER_BENEFICIARIES_FILE = "master_beneficiaries.json"
 
-_MODULE_FILE_MAP = {
-    "pl_data.json": "pl_surrender",
-    "increment_data.json": "increment_order",
-    "sanchalan_data.json": "sanchalan_portal",
-    "arrear_data.json": "salary_arrear",
-}
-
 def load_json_data(file_path, default_val=None):
     if default_val is None:
         default_val = {"office_data": {}, "employees": []}
-
-    # Supabase is the primary persistent source for authenticated users.
-    username = st.session_state.get("logged_username")
-    basename = os.path.basename(file_path)
-    module = _MODULE_FILE_MAP.get(basename)
-
-    if username and module:
-        try:
-            cloud_data = _read_module_data(username, module)
-            if cloud_data is not None:
-                return cloud_data
-        except Exception:
-            pass
-
-    # Local fallback keeps the existing VS Code workflow functional.
     if os.path.exists(file_path):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
-            pass
+            return default_val
     return default_val
 
 def save_json_data(file_path, data):
-    folder = os.path.dirname(os.path.abspath(file_path))
-    os.makedirs(folder, exist_ok=True)
-
-    # Existing local behavior retained.
+    os.makedirs("output", exist_ok=True)
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-
-    # Supabase persistent save.
-    username = st.session_state.get("logged_username")
-    basename = os.path.basename(file_path)
-    module = _MODULE_FILE_MAP.get(basename)
-    if username and module:
-        try:
-            _save_module_data(username, module, data)
-            st.session_state[f"supabase_saved_{module}"] = True
-            st.session_state[f"supabase_saved_at_{module}"] = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-        except Exception as exc:
-            st.session_state[f"supabase_saved_{module}"] = False
-            st.warning(f"⚠️ {module} का local data save हो गया, लेकिन Supabase save नहीं हुआ: {type(exc).__name__}: {exc}")
 
 def load_json_file(filename, default_val):
     if os.path.exists(filename):
@@ -912,830 +53,6 @@ def save_json_file(filename, data):
             json.dump(data, f, ensure_ascii=False, indent=4)
     except Exception:
         pass
-
-# ============================================================
-# REGISTRATION
-# ============================================================
-def registration_screen():
-    st.markdown("""
-    <div style="
-        text-align:center;
-        padding:18px;
-        border-radius:12px;
-        background:linear-gradient(135deg,#154360,#2874A6);
-        margin-bottom:20px;">
-        <h2 style="color:white;">📝 नया उपयोगकर्ता पंजीकरण</h2>
-        <p style="color:white;">राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        full_name = st.text_input("👤 पूरा नाम", key="reg_full_name")
-        address = st.text_input("🏠 पता", key="reg_address")
-        mobile = st.text_input("📱 मोबाइल नंबर", max_chars=10, key="reg_mobile")
-        email = st.text_input("📧 Email Address", key="reg_email")
-    with col2:
-        username = st.text_input("🔑 Login ID / Username", key="reg_username")
-        password = st.text_input("🔒 Password", type="password", key="reg_password")
-        confirm_password = st.text_input(
-            "🔒 Confirm Password", type="password", key="reg_confirm_password"
-        )
-
-    st.info("यह सामान्य User Account है। Administrator Account केवल अलग Admin Login से संचालित होगा।")
-
-    if st.button("✅ Registration करें", use_container_width=True, key="register_user_button"):
-        full_name = full_name.strip()
-        address = address.strip()
-        mobile = mobile.strip()
-        email = email.strip().lower()
-        username = username.strip().lower()
-
-        if not full_name:
-            st.error("कृपया पूरा नाम भरें।")
-            return
-        if not re.fullmatch(r"[0-9]{10}", mobile):
-            st.error("कृपया 10 अंकों का मोबाइल नंबर भरें।")
-            return
-        if not re.fullmatch(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
-            st.error("कृपया सही Email Address भरें।")
-            return
-        if not re.fullmatch(r"[a-zA-Z0-9_.-]{4,30}", username):
-            st.error("Login ID 4 से 30 characters की हो।")
-            return
-        if len(password) < 6:
-            st.error("Password कम से कम 6 characters का होना चाहिए।")
-            return
-        if password != confirm_password:
-            st.error("Password और Confirm Password समान नहीं हैं।")
-            return
-
-        try:
-            profile = _create_supabase_user_and_profile(
-                full_name, address, mobile, email, username, password, "user"
-            )
-            st.success("Registration सफल रहा। अब Login करें।")
-            st.session_state.show_registration = False
-            st.session_state.show_user_recovery = False
-            st.rerun()
-        except Exception as exc:
-            st.error(f"Registration Error: {type(exc).__name__}: {exc}")
-
-# ============================================================
-# USER LOGIN
-# ============================================================
-def _auth_visual_style():
-    st.markdown("""
-    <style>
-    html, body, [data-testid="stApp"], [data-testid="stAppViewContainer"],
-    [data-testid="stAppViewBlockContainer"], [data-testid="stMainBlockContainer"],
-    section[data-testid="stMain"], main {
-        background:#06162b !important;
-    }
-    .stApp, [data-testid="stAppViewContainer"], [data-testid="stAppViewBlockContainer"],
-    [data-testid="stMainBlockContainer"], section[data-testid="stMain"] {
-        background:linear-gradient(135deg,#06162b,#0b2b4a 55%,#123e68) !important;
-    }
-    /* Hide the previous Login DOM immediately during Streamlit rerun/navigation.
-       This prevents the old black Login interface from remaining visible for
-       1–2 seconds while the Main Dashboard is being rendered. The application
-       background remains dark, so no white flash is introduced. */
-    [data-stale="true"] {
-        opacity:0 !important;
-        visibility:hidden !important;
-        pointer-events:none !important;
-        transition:none !important;
-        filter:none !important;
-    }
-    [data-testid="stAppViewBlockContainer"], [data-testid="stMainBlockContainer"] {
-        transition:none !important;
-    }
-    [data-testid="stStatusWidget"], [data-testid="stDecoration"] { background:transparent !important; }
-    header[data-testid="stHeader"] { background:transparent !important; }
-
-    /* One identical header for every Login / ID-Recovery / Password-Recovery screen. */
-    .auth-shell {
-        background:linear-gradient(135deg,#081b34,#0c3155 55%,#164b79);
-        padding:10px 16px; border:2px solid #f4d03f; border-radius:18px;
-        box-shadow:0 10px 26px rgba(0,0,0,.34); margin:2px 0 12px;
-        display:grid; grid-template-columns:282px minmax(0,1fr); align-items:center;
-        min-height:262px; box-sizing:border-box;
-    }
-    .auth-visual-box {
-        width:260px; height:260px; border:1px solid rgba(244,208,63,.48);
-        border-radius:15px; background:rgba(3,18,35,.52); display:flex;
-        align-items:center; justify-content:center; overflow:hidden; box-shadow:inset 0 0 18px rgba(0,0,0,.28);
-    }
-    .auth-sun { position:relative; width:260px; height:260px; display:flex; align-items:center; justify-content:center; flex:0 0 260px; overflow:visible; }
-    .auth-sun-rotator { position:absolute; inset:0; width:260px; height:260px; z-index:1; animation:authspin 12s linear infinite; transform-origin:50% 50%; will-change:transform; }
-    .auth-sun-rotator .spinning-rays { position:absolute; inset:0; width:260px !important; height:260px !important; display:block; }
-    .auth-photo {
-        position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-        width:134px; height:134px; box-sizing:border-box; border-radius:50%;
-        border:3px solid #f39c12; z-index:3; display:block;
-        background-repeat:no-repeat; background-position:center 25%; background-size:120%;
-        background-color:#123e68;
-        box-shadow:0 0 12px rgba(0,0,0,.78), inset 0 0 0 1px rgba(255,255,255,.18);
-    }
-    .auth-header-copy { min-width:0; padding:4px 20px 4px 18px; text-align:left; }
-    .auth-title { color:#f4d03f !important; text-align:left; font-size:31px; line-height:1.12; font-weight:900; margin:0 0 10px; text-shadow:0 2px 0 rgba(0,0,0,.25); }
-    .auth-subtitle { color:#d6eaf8 !important; text-align:left; font-size:17px; line-height:1.45; margin:0; font-weight:700; }
-    .auth-module-info { color:#85c1e9 !important; text-align:left; font-size:14px; line-height:1.5; margin-top:8px; font-weight:600; }
-    @keyframes authspin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-    .auth-card { background:rgba(9,30,53,.96); border:1px solid #2e86c1; border-radius:16px; padding:18px; box-shadow:0 8px 22px rgba(0,0,0,.28); min-height:270px; }
-    .auth-card h3,.auth-card h2 { color:#f4d03f !important; }
-    .auth-card p { color:#ecf0f1 !important; line-height:1.55; }
-    div[data-testid="stTextInput"] input { background:linear-gradient(180deg,#f2f5f8,#dce6ef) !important; color:#102a45 !important; border:2px solid #5dade2 !important; border-radius:11px !important; box-shadow:inset 0 2px 5px rgba(0,0,0,.12),0 3px 0 #1b4f72 !important; min-height:43px !important; font-weight:700 !important; }
-    div[data-testid="stTextInput"] label p { color:#f4d03f !important; font-weight:800 !important; }
-    /* Explicitly force Login Credentials / recovery headings to the same gold as the key icon. */
-    div[class*="st-key-user_login_form"] h2, div[class*="st-key-admin_login_form"] h2,
-    div[class*="st-key-user_recovery_form"] h2, div[class*="st-key-admin_recovery_form"] h2,
-    div[class*="st-key-admin_password_reset_form"] h2, div[class*="st-key-user_login_form"] h3,
-    div[class*="st-key-admin_login_form"] h3, div[class*="st-key-user_recovery_form"] h3,
-    div[class*="st-key-admin_recovery_form"] h3, div[class*="st-key-admin_password_reset_form"] h3 { color:#f4d03f !important; }
-    div[class*="st-key-user_login_form"], div[class*="st-key-admin_login_form"], div[class*="st-key-user_recovery_form"], div[class*="st-key-admin_recovery_form"], div[class*="st-key-admin_password_reset_form"] {
-        background:rgba(9,30,53,.96) !important; border:1px solid #2e86c1 !important; border-radius:16px !important; padding:18px 18px 12px !important; box-shadow:0 8px 22px rgba(0,0,0,.28) !important;
-    }
-    div[class*="st-key-user_login_submit"] button { background:#27ae60 !important; border:2px solid #2ecc71 !important; box-shadow:0 4px 0 #1e8449 !important; }
-    div[class*="st-key-admin_login_submit"] button { background:#d4ac0d !important; border:2px solid #f4d03f !important; box-shadow:0 4px 0 #9a7d0a !important; }
-    div[class*="st-key-user_id_recovery_btn"] button, div[class*="st-key-admin_id_recovery_btn"] button { background:#8e44ad !important; border:2px solid #9b59b6 !important; box-shadow:0 4px 0 #6c3483 !important; }
-    div[class*="st-key-user_password_recovery_btn"] button, div[class*="st-key-admin_password_recovery_btn"] button { background:#d35400 !important; border:2px solid #e67e22 !important; box-shadow:0 4px 0 #a04000 !important; }
-    /* Login-page navigation buttons: dark backgrounds keep the white labels readable. */
-    div[class*="st-key-open_user_registration"] button { background:#1f618d !important; border:2px solid #2980b9 !important; box-shadow:0 4px 0 #154360 !important; color:#fff !important; }
-    div[class*="st-key-open_admin_login"] button { background:#8e44ad !important; border:2px solid #9b59b6 !important; box-shadow:0 4px 0 #6c3483 !important; color:#fff !important; }
-    div[class*="st-key-back_login_btn"] button { background:#c0392b !important; border:2px solid #e74c3c !important; box-shadow:0 4px 0 #922b21 !important; }
-    div[class*="st-key-auth_action"] button, div[class*="st-key-user_recovery_verify"] button, div[class*="st-key-admin_recovery_verify"] button { background:#2980b9 !important; border:2px solid #3498db !important; box-shadow:0 4px 0 #1b4f72 !important; }
-    div[class*="st-key-auth_action"] button, div[class*="st-key-user_login_submit"] button, div[class*="st-key-admin_login_submit"] button, div[class*="st-key-user_id_recovery_btn"] button, div[class*="st-key-user_password_recovery_btn"] button, div[class*="st-key-admin_id_recovery_btn"] button, div[class*="st-key-admin_password_recovery_btn"] button, div[class*="st-key-back_login_btn"] button, div[class*="st-key-user_recovery_verify"] button, div[class*="st-key-admin_recovery_verify"] button { color:#fff !important; font-weight:900 !important; border-radius:10px !important; min-height:44px !important; }
-    div[class*="st-key-module_nav_pl"] button { background:#1f618d !important; border:2px solid #2980b9 !important; box-shadow:0 4px 0 #154360 !important; color:#fff !important; }
-    div[class*="st-key-module_nav_inc"] button { background:#27ae60 !important; border:2px solid #2ecc71 !important; box-shadow:0 4px 0 #1e8449 !important; color:#fff !important; }
-    div[class*="st-key-module_nav_sna"] button { background:#8e44ad !important; border:2px solid #9b59b6 !important; box-shadow:0 4px 0 #6c3483 !important; color:#fff !important; }
-    div[class*="st-key-module_nav_arr"] button { background:#d35400 !important; border:2px solid #e67e22 !important; box-shadow:0 4px 0 #a04000 !important; color:#fff !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def _processing_notice(message: str):
-    """Show a persistent one-run notice after a navigation/recovery action."""
-    notice = st.session_state.pop("auth_processing_notice", None)
-    if notice:
-        st.info(f"🔄 {notice}")
-
-def _set_processing_notice(message: str):
-    st.session_state["auth_processing_notice"] = message
-
-def _login_visual_header(title, subtitle, accent="#f4d03f", icon="👤"):
-    _auth_visual_style()
-    if img_b64:
-        photo = (
-            f'<div class="auth-photo" aria-label="Developer Photo" '
-            f'style="background-image:url(\'data:{img_mime};base64,{img_b64}\');"></div>'
-        )
-    else:
-        photo = '<div class="auth-photo" style="display:flex;align-items:center;justify-content:center;color:#f4d03f;font-size:44px;">👤</div>'
-    st.markdown(f"""
-    <div class="auth-shell">
-      <div class="auth-visual-box">
-        <div class="auth-sun">
-          <div class="auth-sun-rotator">{rays_svg_html}</div>
-          {photo}
-        </div>
-      </div>
-      <div class="auth-header-copy">
-        <div class="auth-title" style="color:{accent} !important;">राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर</div>
-        <div class="auth-subtitle">{icon} {title} — राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर — एक Login से सभी Modules</div>
-        <div class="auth-module-info">{subtitle}</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def user_login_screen():
-    _login_visual_header("User Login", "राजस्थान गवर्नमेंट ऑफिस ऑर्डर जनरेटर — एक Login से सभी Modules", "#f4d03f", "👤")
-    _processing_notice("User Login प्रक्रिया शुरू हो गई है।")
-    left,right=st.columns([1.05,1.0], gap="large")
-    with left:
-        st.markdown("""<div class="auth-card"><h3>✨ सॉफ्टवेयर की प्रमुख विशेषताएँ</h3><p>🔐 सुरक्षित User/Admin Login और एक session में सभी चार modules।</p><p>☁️ प्रत्येक User का data Supabase में user-wise सुरक्षित।</p><p>📊 Admin को visitor, session और module activity दिखाई देती है।</p><p>📄 Salary Arrear में PDF तथा formula-based editable Excel।</p><p>🔑 User ID और Password recovery के लिए Registered Email + Mobile verification।</p></div>""", unsafe_allow_html=True)
-    with right:
-        with st.container(key="user_login_form"):
-            st.markdown('<h2 style="color:#f4d03f !important;">🔑 Login Credentials</h2>', unsafe_allow_html=True)
-            username=st.text_input("Login ID", key="user_login_username")
-            password=st.text_input("Password", type="password", key="user_login_password")
-            with st.container(key="user_login_submit"):
-                if st.button("🟢 User Login करें", use_container_width=True, key="user_login_button"):
-                    username=username.strip().lower()
-                    with st.spinner("🔄 User Login हो रहा है… कृपया प्रतीक्षा करें।"):
-                        try:
-                            profile=_profile_by_username(username)
-                            if not profile: profile=_migrate_legacy_user_to_supabase(username,password)
-                            if not profile or not profile.get("is_active",True): raise RuntimeError()
-                            if profile.get("role")=="admin":
-                                st.warning("यह Administrator Account है। Admin Login चुनें।")
-                            else:
-                                auth_user=_supabase_password_login(profile,password); _set_authenticated(profile,auth_user); _record_activity("LOGIN","Authentication","Successful User login"); st.rerun()
-                        except Exception: st.error("Login ID या Password गलत है।")
-            st.markdown('<hr style="border-color:#2e86c1;">',unsafe_allow_html=True)
-            c1,c2=st.columns(2)
-            with c1:
-                if st.button("📝 नया User Account",use_container_width=True,key="open_user_registration"):
-                    st.session_state.show_registration=True; st.session_state.show_admin_login=False; st.session_state.show_user_recovery=False; st.rerun()
-                with st.container(key="user_id_recovery_btn"):
-                    if st.button("🔑 Forgot User ID",use_container_width=True,key="open_user_id_recovery"):
-                        _set_processing_notice("Forgot User ID screen खोला जा रहा है…")
-                        st.session_state.show_user_recovery=True; st.session_state.recovery_mode="user_id"; st.session_state.recovery_otp_sent=False; st.session_state.recovery_verified=False; st.rerun()
-            with c2:
-                if st.button("👑 Admin Login",use_container_width=True,key="open_admin_login"):
-                    st.session_state.show_admin_login=True; st.session_state.show_user_recovery=False; st.session_state.show_registration=False; st.rerun()
-                with st.container(key="user_password_recovery_btn"):
-                    if st.button("🔐 Forgot Password",use_container_width=True,key="open_password_recovery"):
-                        _set_processing_notice("Forgot Password screen खोला जा रहा है…")
-                        st.session_state.show_user_recovery=True; st.session_state.recovery_mode="password"; st.session_state.recovery_otp_sent=False; st.session_state.recovery_verified=False; st.rerun()
-
-
-
-
-def _send_admin_password_reset(email):
-    """Send the native Supabase password-reset email for an Admin account."""
-    email = _safe_text(email).strip().lower()
-    if not email:
-        raise RuntimeError("Registered Admin Email आवश्यक है।")
-
-    # Streamlit's server-side Python cannot read the browser URL fragment that
-    # Supabase's default recovery link uses.  The Reset Password email template
-    # therefore sends TokenHash to this same redirect URL as query parameters.
-    redirect_url = "http://localhost:8501"
-    return supabase.auth.reset_password_for_email(
-        email,
-        options={"redirect_to": redirect_url},
-    )
-
-
-def _handle_admin_password_recovery_callback():
-    """Consume a TokenHash recovery link and establish a verified Admin recovery state.
-
-    The actual password update is performed by the trusted server-side service client
-    after the one-time recovery token has been verified. This avoids depending on a
-    browser-side session surviving a Streamlit rerun.
-    """
-    if st.session_state.get("password_recovery_active"):
-        return
-
-    try:
-        params = st.query_params
-        token_hash = _safe_text(params.get("token_hash", "")).strip()
-        token_type = _safe_text(params.get("type", "")).strip().lower()
-
-        if not token_hash or token_type != "recovery":
-            return
-
-        response = supabase.auth.verify_otp({
-            "token_hash": token_hash,
-            "type": "recovery",
-        })
-
-        user = getattr(response, "user", None)
-        if user is None:
-            raise RuntimeError("Supabase recovery token verify हुआ, लेकिन user प्राप्त नहीं हुआ।")
-
-        email = _safe_text(getattr(user, "email", "")).strip().lower()
-        user_id = _safe_text(getattr(user, "id", "")).strip()
-        profile = _profile_by_email(email) if email else None
-
-        if not user_id or not profile or profile.get("role") != "admin":
-            try:
-                supabase.auth.sign_out()
-            except Exception:
-                pass
-            raise RuntimeError("यह recovery link किसी registered Admin account का नहीं है।")
-
-        st.session_state.recovery_email = email
-        st.session_state.recovery_user_id = user_id
-        st.session_state.recovery_profile = profile
-        st.session_state.recovery_mode = "password"
-        st.session_state.recovery_verified = True
-        st.session_state.password_recovery_active = True
-        st.session_state.recovery_otp_sent = False
-        st.session_state.show_admin_recovery = True
-        st.session_state.show_admin_login = False
-        st.session_state.recovery_callback_error = None
-
-        # Token is one-time; remove it from the visible URL after consumption.
-        try:
-            st.query_params.clear()
-        except Exception:
-            pass
-
-    except Exception as exc:
-        st.session_state.password_recovery_active = False
-        st.session_state.recovery_verified = False
-        st.session_state.recovery_user_id = None
-        st.session_state.recovery_profile = None
-        st.session_state.show_admin_recovery = True
-        st.session_state.show_admin_login = False
-        st.session_state.recovery_mode = "password"
-        st.session_state.recovery_callback_error = f"{type(exc).__name__}: {exc}"
-
-
-def _admin_password_reset_screen():
-    """Dedicated Admin password page after a valid recovery link."""
-    profile = st.session_state.get("recovery_profile") or {}
-    user_id = _safe_text(st.session_state.get("recovery_user_id")).strip()
-    _login_visual_header("Reset Admin Password", "Recovery link सत्यापित हो चुका है — अब नया Password बनाइए।", "#2ecc71", "🔐")
-    _processing_notice("Admin Password Reset प्रक्रिया शुरू हो गई है।")
-    left, right = st.columns([1.0, 1.05], gap="large")
-    with left:
-        st.markdown('<div class="auth-card"><h3>🔐 Password Recovery</h3><p>आपके Admin account की पहचान सफलतापूर्वक सत्यापित हो गई है।</p><p>अब नीचे नया Password बनाइए।</p><p><b>Registered Email:</b> '+email_html(_safe_text(profile.get("email", "")))+'</p></div>', unsafe_allow_html=True)
-    with right:
-        with st.container(key="admin_password_reset_form"):
-            st.markdown('<h2 style="color:#f4d03f !important;">🔑 नया Admin Password</h2>', unsafe_allow_html=True)
-            new_password = st.text_input("नया Password", type="password", key="native_admin_new_password")
-            confirm_password = st.text_input("नया Password पुनः दर्ज करें", type="password", key="native_admin_confirm_password")
-            with st.container(key="auth_action"):
-                if st.button("🔄 Admin Password Reset करें", use_container_width=True, key="native_admin_password_reset_button"):
-                    if len(new_password) < 6: st.error("Password कम से कम 6 characters का होना चाहिए।")
-                    elif new_password != confirm_password: st.error("दोनों Password समान नहीं हैं।")
-                    elif not user_id: st.error("Verified Admin User ID उपलब्ध नहीं है।")
-                    else:
-                        with st.spinner("🔄 Admin Password update हो रहा है… कृपया प्रतीक्षा करें।"):
-                            try:
-                                service = _get_service_client()
-                                result = service.auth.admin.update_user_by_id(user_id, {"password": new_password})
-                                if getattr(result, "user", None) is None: raise RuntimeError("Supabase Admin API ने password update की पुष्टि नहीं की।")
-                                try: supabase.auth.sign_out()
-                                except Exception: pass
-                                st.session_state.password_recovery_active=False; st.session_state.recovery_verified=False; st.session_state.recovery_otp_sent=False; st.session_state.recovery_profile=None; st.session_state.recovery_user_id=None; st.session_state.recovery_email=None; st.session_state.recovery_callback_error=None; st.session_state.show_admin_recovery=False; st.session_state.show_admin_login=True
-                                st.success("Admin Password सफलतापूर्वक बदल दिया गया है। अब नए Password से Login करें."); st.rerun()
-                            except Exception as exc: st.error(f"Admin Password Reset Error: {type(exc).__name__}: {exc}")
-
-
-def email_html(value: str) -> str:
-    """Minimal HTML escaping for the recovery page."""
-    import html
-    return html.escape(_safe_text(value))
-
-def _verify_user_identity_for_recovery(email: str, mobile: str):
-    """Verify a User using the registered Email + Mobile pair only. No OTP/email is sent."""
-    email = _safe_text(email).strip().lower()
-    mobile = _safe_text(mobile).strip()
-    if not email or not mobile:
-        raise RuntimeError("Registered Email और Mobile Number दोनों आवश्यक हैं।")
-
-    profile = _profile_by_identity(mobile, email)
-    if not profile or profile.get("role") != "user" or not profile.get("is_active", True):
-        raise RuntimeError("Email और Mobile Number का registered User record से मिलान नहीं हुआ।")
-
-    user_id = _safe_text(profile.get("user_id")).strip()
-    if not user_id:
-        raise RuntimeError("इस User account का Supabase User ID उपलब्ध नहीं है।")
-
-    st.session_state.recovery_email = email
-    st.session_state.recovery_user_id = user_id
-    st.session_state.recovery_profile = profile
-    st.session_state.recovery_verified = True
-    st.session_state.recovery_otp_sent = False
-    return profile
-
-
-def _user_password_reset_by_verified_identity(new_password: str):
-    """Set User password using the trusted server-side Supabase Admin API."""
-    user_id = _safe_text(st.session_state.get("recovery_user_id")).strip()
-    profile = st.session_state.get("recovery_profile") or {}
-    if not user_id or profile.get("role") != "user":
-        raise RuntimeError("Verified User account उपलब्ध नहीं है।")
-    service = _get_service_client()
-    result = service.auth.admin.update_user_by_id(
-        user_id,
-        {"password": new_password},
-    )
-    if getattr(result, "user", None) is None:
-        raise RuntimeError("Supabase Admin API ने password update की पुष्टि नहीं की।")
-
-
-def user_recovery_screen():
-    mode = st.session_state.get("recovery_mode") or "password"
-    title = "Forgot User ID" if mode == "user_id" else "Forgot Password"
-    _login_visual_header(title, "Registered Email + Mobile Number से User verification", "#8e44ad", "🔑")
-    _processing_notice("User Recovery प्रक्रिया शुरू हो गई है।")
-    left, right = st.columns([1.0, 1.05], gap="large")
-    with left:
-        st.markdown('<div class="auth-card"><h3>🔐 User Recovery</h3><p>User recovery में OTP या recovery email नहीं भेजा जाएगा।</p><p>Registered Email और Mobile Number का exact match होने पर recovery विकल्प खुलेगा।</p></div>', unsafe_allow_html=True)
-    with right:
-        with st.container(key="user_recovery_form"):
-            email = st.text_input("Registered Email", key="user_recovery_identity_email")
-            mobile = st.text_input("Registered Mobile Number", key="user_recovery_identity_mobile")
-            if not st.session_state.get("recovery_verified"):
-                with st.container(key="user_recovery_verify"):
-                    if st.button("✅ Email + Mobile Verify करें", use_container_width=True, key="verify_user_identity_recovery"):
-                        with st.spinner("🔄 User details verify हो रहे हैं… कृपया प्रतीक्षा करें।"):
-                            try:
-                                profile = _verify_user_identity_for_recovery(email, mobile)
-                                st.success("Email और Mobile Number verify हो गए हैं।")
-                                if mode == "user_id": st.rerun()
-                            except Exception as exc:
-                                st.error(f"User Verification Error: {type(exc).__name__}: {exc}")
-            if st.session_state.get("recovery_verified") and st.session_state.get("recovery_profile"):
-                profile = st.session_state.recovery_profile
-                if mode == "user_id":
-                    st.success(f"आपकी User Login ID: {profile.get('username', '')}")
-                else:
-                    st.markdown('<h3 style="color:#f4d03f !important;">🔑 नया User Password</h3>', unsafe_allow_html=True)
-                    new_password = st.text_input("नया Password", type="password", key="direct_user_recovery_new_password")
-                    confirm_password = st.text_input("नया Password पुनः दर्ज करें", type="password", key="direct_user_recovery_confirm_password")
-                    with st.container(key="auth_action"):
-                        if st.button("🔄 User Password Reset करें", use_container_width=True, key="direct_user_password_reset_button"):
-                            if len(new_password) < 6: st.error("Password कम से कम 6 characters का होना चाहिए।")
-                            elif new_password != confirm_password: st.error("दोनों Password समान नहीं हैं।")
-                            else:
-                                with st.spinner("🔄 User Password update हो रहा है… कृपया प्रतीक्षा करें।"):
-                                    try:
-                                        _user_password_reset_by_verified_identity(new_password)
-                                        st.session_state.recovery_verified=False; st.session_state.recovery_otp_sent=False; st.session_state.recovery_profile=None; st.session_state.recovery_user_id=None; st.session_state.recovery_email=None; st.session_state.show_user_recovery=False
-                                        st.success("User Password सफलतापूर्वक बदल दिया गया है। अब नए Password से Login करें।"); st.rerun()
-                                    except Exception as exc: st.error(f"User Password Reset Error: {type(exc).__name__}: {exc}")
-            with st.container(key="back_login_btn"):
-                if st.button("↩️ User Login पर वापस जाएँ", key="back_from_user_recovery"):
-                    st.session_state.show_user_recovery=False; st.session_state.recovery_verified=False; st.session_state.recovery_otp_sent=False; st.session_state.recovery_profile=None; st.session_state.recovery_user_id=None; st.session_state.recovery_email=None; st.rerun()
-
-
-# ============================================================
-# ADMIN LOGIN
-# ============================================================
-# ============================================================
-def admin_login_screen():
-    _login_visual_header("Administrator Login","केवल अधिकृत Administrator के लिए सुरक्षित प्रवेश","#f4d03f","👑")
-    _processing_notice("Admin Login प्रक्रिया शुरू हो गई है।")
-    left,right=st.columns([1.0,1.05],gap="large")
-    with left:
-        st.markdown('<div class="auth-card"><h3>👑 Administrator Control</h3><p>सभी users की profile, visitor sessions और module activity केवल Admin को दिखाई देती है।</p><p>एक बार Admin Login के बाद सभी modules उसी session में उपलब्ध रहते हैं।</p><p>Admin User ID और Password recovery में Registered Email + Mobile verification / Password Reset Link का उपयोग होता है।</p></div>',unsafe_allow_html=True)
-    with right:
-        with st.container(key="admin_login_form"):
-            admins=[p for p in _all_profiles() if p.get("role")=="admin" and p.get("is_active",True)]
-            if not admins and not _legacy_admin_exists(): st.error("Administrator Account उपलब्ध नहीं है।")
-            else:
-                username=st.text_input("Admin Login ID",key="admin_login_username"); password=st.text_input("Admin Password",type="password",key="admin_login_password")
-                with st.container(key="admin_login_submit"):
-                    if st.button("👑 Admin Login करें",use_container_width=True,key="admin_login_button"):
-                        with st.spinner("🔄 Admin Login हो रहा है… कृपया प्रतीक्षा करें।"):
-                            try:
-                                username=username.strip().lower(); profile=_profile_by_username(username)
-                                if not profile: profile=_migrate_legacy_user_to_supabase(username,password)
-                                if not profile or profile.get("role")!="admin" or not profile.get("is_active",True): raise RuntimeError()
-                                auth_user=_supabase_password_login(profile,password); _set_authenticated(profile,auth_user); _record_activity("ADMIN_LOGIN","Authentication","Successful Administrator login"); st.rerun()
-                            except Exception: st.error("Admin Login ID या Password गलत है।")
-                st.markdown('<hr style="border-color:#2e86c1;">',unsafe_allow_html=True)
-                c1,c2=st.columns(2)
-                with c1:
-                    with st.container(key="admin_id_recovery_btn"):
-                        if st.button("🔑 Forgot Admin User ID",use_container_width=True,key="open_admin_id_recovery"):
-                            _set_processing_notice("Forgot Admin User ID screen खोला जा रहा है…")
-                            st.session_state.show_admin_recovery=True; st.session_state.recovery_mode="user_id"; st.session_state.recovery_otp_sent=False; st.session_state.recovery_verified=False; st.session_state.recovery_profile=None; st.rerun()
-                with c2:
-                    with st.container(key="admin_password_recovery_btn"):
-                        if st.button("🔐 Forgot Admin Password",use_container_width=True,key="open_admin_password_recovery"):
-                            _set_processing_notice("Forgot Admin Password screen खोला जा रहा है…")
-                            st.session_state.show_admin_recovery=True; st.session_state.recovery_mode="password"; st.session_state.recovery_otp_sent=False; st.session_state.recovery_verified=False; st.session_state.recovery_profile=None; st.rerun()
-            with st.container(key="back_login_btn"):
-                if st.button("↩️ User Login पर वापस जाएँ",use_container_width=True,key="back_to_user_login"):
-                    st.session_state.show_admin_login=False; st.session_state.show_admin_recovery=False; st.rerun()
-
-
-
-def _verify_admin_identity_for_recovery(email: str, mobile: str):
-    """Verify Admin identity by exact registered Email + Mobile match; no OTP."""
-    email = _safe_text(email).strip().lower()
-    mobile = _safe_text(mobile).strip()
-    if not email or not mobile:
-        raise RuntimeError("Registered Admin Email और Mobile Number दोनों आवश्यक हैं।")
-    profile = _profile_by_identity(mobile, email)
-    if not profile or profile.get("role") != "admin" or not profile.get("is_active", True):
-        raise RuntimeError("Email और Mobile Number का registered Admin record से मिलान नहीं हुआ।")
-    st.session_state.recovery_email = email
-    st.session_state.recovery_profile = profile
-    st.session_state.recovery_user_id = _safe_text(profile.get("user_id")).strip()
-    st.session_state.recovery_verified = True
-    st.session_state.recovery_otp_sent = False
-    return profile
-
-def admin_recovery_screen():
-    if st.session_state.get("password_recovery_active") and st.session_state.get("recovery_verified"):
-        _admin_password_reset_screen(); return
-    callback_error = st.session_state.get("recovery_callback_error")
-    mode = st.session_state.get("recovery_mode") or "password"
-    _login_visual_header("Forgot Admin User ID" if mode == "user_id" else "Forgot Admin Password", "Registered Admin Email से recovery", "#d35400", "👑")
-    _processing_notice("Admin Recovery प्रक्रिया शुरू हो गई है।")
-    left, right = st.columns([1.0, 1.05], gap="large")
-    with left:
-        st.markdown('<div class="auth-card"><h3>🔐 Administrator Recovery</h3><p>Admin User ID के लिए Registered Email + Mobile का exact match किया जाएगा। OTP नहीं भेजा जाएगा।</p><p>Admin Password के लिए Supabase Password Reset Email link इस्तेमाल होगा।</p></div>', unsafe_allow_html=True)
-    with right:
-        with st.container(key="admin_recovery_form"):
-            email = st.text_input("Registered Admin Email", key="admin_recovery_email_input")
-            mobile = st.text_input("Registered Admin Mobile Number", key="admin_recovery_mobile_input")
-            profile = _profile_by_email(email) if email.strip() else None
-            if callback_error:
-                st.error(f"Password Recovery Error: {callback_error}")
-                st.session_state.recovery_callback_error = None
-            if mode == "password":
-                with st.container(key="admin_password_recovery_btn"):
-                    if st.button("📨 Password Reset Email भेजें", use_container_width=True, key="send_admin_password_reset_email"):
-                        with st.spinner("🔄 Admin Password Reset Email भेजा जा रहा है… कृपया प्रतीक्षा करें।"):
-                            try:
-                                if not profile or profile.get("role") != "admin": raise RuntimeError("यह registered Admin Email नहीं है।")
-                                _send_admin_password_reset(email)
-                                st.session_state.recovery_email = email.strip().lower(); st.session_state.recovery_profile = profile
-                                st.success("Password Reset Email भेज दिया गया है। Email खोलकर Reset Password link पर क्लिक करें।")
-                            except Exception as exc: st.error(f"Password Reset Email Error: {type(exc).__name__}: {exc}")
-            else:
-                with st.container(key="admin_recovery_verify"):
-                    if st.button("✅ Email + Mobile Verify करके Admin User ID दिखाएँ", use_container_width=True, key="verify_admin_identity_recovery"):
-                        with st.spinner("🔄 Admin details verify हो रहे हैं… कृपया प्रतीक्षा करें।"):
-                            try:
-                                profile = _verify_admin_identity_for_recovery(email, mobile)
-                                st.success("Admin Email और Mobile Number verify हो गए हैं।")
-                            except Exception as exc: st.error(f"Admin Verification Error: {type(exc).__name__}: {exc}")
-                if st.session_state.get("recovery_verified") and st.session_state.get("recovery_profile"):
-                    profile = st.session_state.recovery_profile
-                    st.success(f"Admin Login ID: {profile.get('username', '')}")
-            with st.container(key="back_login_btn"):
-                if st.button("↩️ Admin Login पर वापस जाएँ", key="back_from_admin_recovery"):
-                    st.session_state.show_admin_recovery=False; st.session_state.recovery_verified=False; st.session_state.recovery_otp_sent=False; st.session_state.recovery_profile=None; st.session_state.recovery_user_id=None; st.session_state.password_recovery_active=False; st.session_state.recovery_callback_error=None; st.rerun()
-
-
-# ============================================================
-# NATIVE ADMIN PASSWORD RECOVERY CALLBACK
-# ============================================================
-_handle_admin_password_recovery_callback()
-
-# ============================================================
-# AUTHENTICATION GATE
-# ============================================================
-if not st.session_state.authenticated:
-    if st.session_state.show_admin_recovery:
-        admin_recovery_screen()
-    elif st.session_state.show_admin_login:
-        admin_login_screen()
-    elif st.session_state.show_user_recovery:
-        user_recovery_screen()
-    elif st.session_state.show_registration:
-        registration_screen()
-        st.markdown("---")
-        if st.button("↩️ User Login पर वापस जाएँ", key="persistent_back_login"):
-            st.session_state.show_registration = False
-            st.rerun()
-    else:
-        user_login_screen()
-    st.stop()
-
-# ============================================================
-# LOGGED-IN USER BAR
-# ============================================================
-# Refresh profile from Supabase when possible, but NEVER destroy an already
-# authenticated Streamlit session merely because a transient Supabase read
-# fails during a tab/page switch. The cached profile is authoritative for the
-# current session until explicit Logout.
-logged_profile = None
-try:
-    logged_profile = _profile_by_username(st.session_state.get("logged_username"))
-except Exception:
-    logged_profile = None
-
-if logged_profile:
-    st.session_state.logged_profile = dict(logged_profile)
-else:
-    logged_profile = st.session_state.get("logged_profile")
-
-if not logged_profile:
-    _clear_auth_state()
-    st.error("User profile उपलब्ध नहीं है। कृपया पुनः Login करें।")
-    st.stop()
-
-if logged_profile.get("role") == "admin":
-    auth_col1, auth_col2, auth_col3, auth_col4 = st.columns([5, 2, 1.8, 1.2])
-    with auth_col1:
-        st.caption(
-            f"👤 **{logged_profile.get('full_name','')}** "
-            f"({logged_profile.get('username','')})"
-        )
-    with auth_col2:
-        st.caption("👑 Administrator")
-    with auth_col3:
-        if st.button("📊 Visitor Analytics", key="open_visitor_analytics", use_container_width=True):
-            st.query_params["visitor_analytics"] = "1"
-            st.rerun()
-    with auth_col4:
-        if st.button("🚪 Logout", key="persistent_logout_admin", use_container_width=True):
-            _record_activity("LOGOUT", "Authentication", "Admin logout")
-            _clear_auth_state()
-            st.rerun()
-else:
-    auth_col1, auth_col2, auth_col3 = st.columns([6, 2, 1.2])
-    with auth_col1:
-        st.caption(
-            f"👤 **{logged_profile.get('full_name','')}** "
-            f"({logged_profile.get('username','')})"
-        )
-    with auth_col2:
-        st.caption("👤 User")
-    with auth_col3:
-        if st.button("🚪 Logout", key="persistent_logout_user", use_container_width=True):
-            _record_activity("LOGOUT", "Authentication", "User logout")
-            _clear_auth_state()
-            st.rerun()
-
-# User-specific paths must be resolved AFTER successful authentication.
-CURRENT_USER_DATA_DIR = get_current_user_data_dir()
-PL_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "pl_data.json")
-INC_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "increment_data.json")
-SAN_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "sanchalan_data.json")
-ARREAR_DATA_FILE = os.path.join(CURRENT_USER_DATA_DIR, "arrear_data.json")
-
-# ============================================================
-# ADMIN VISITOR ANALYTICS
-# ============================================================
-def _admin_visitor_analytics_page():
-    # Keep the Analytics page on the same dark theme as the main application.
-    st.markdown("""
-    <style>
-      .stApp { background:linear-gradient(135deg,#06162b,#0b2b4a 55%,#123e68) !important; }
-      [data-testid="stDataFrame"] { border:1px solid #2e86c1 !important; border-radius:10px !important; overflow:hidden !important; }
-      [data-testid="stMetric"] { background:rgba(9,30,53,.92) !important; border:1px solid #2e86c1 !important; border-radius:10px !important; padding:8px !important; }
-      [data-testid="stMetricLabel"] p, [data-testid="stMetricValue"] { color:#ffffff !important; }
-      [data-baseweb="tab-list"] { background:#0e2338 !important; border-radius:8px !important; }
-      [data-baseweb="tab"] { color:#f4d03f !important; }
-      [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2,
-      [data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4,
-      [data-testid="stMarkdownContainer"] h5, [data-testid="stMarkdownContainer"] h6,
-      [data-testid="stSubheader"] h3 { color:#f4d03f !important; text-shadow:0 1px 0 rgba(0,0,0,.5) !important; }
-      [data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] li,
-      [data-testid="stCaptionContainer"] { color:#eaf2f8 !important; }
-      div[data-testid="stDownloadButton"] > button, div[data-testid="stButton"] > button { background:#2980b9 !important; color:#ffffff !important; border:2px solid #3498db !important; box-shadow:0 4px 0 #1b4f72 !important; font-weight:800 !important; }
-      div[data-testid="stButton"]:has(button[aria-label="⬅️ मुख्य Dashboard पर वापस जाएँ"]) { order:-999 !important; }
-      div[class*="st-key-close_visitor_analytics_top"] button { background:#d35400 !important; color:#fff !important; border:2px solid #e67e22 !important; box-shadow:0 4px 0 #a04000 !important; font-weight:900 !important; }
-      div[class*="st-key-close_visitor_analytics_top"] button:hover { background:#e67e22 !important; }
-    </style>
-    """, unsafe_allow_html=True)
-    if st.button("⬅️ मुख्य Dashboard पर वापस जाएँ", key="close_visitor_analytics_top"):
-        st.query_params.pop("visitor_analytics", None)
-        st.rerun()
-
-    st.markdown("""
-    <div style="background:linear-gradient(135deg,#154360,#1f618d);
-    padding:18px;border-radius:12px;margin-bottom:18px;text-align:center;">
-        <h2 style="color:#f4d03f !important;margin:0;">📊 Visitor Analytics & User Activity</h2>
-        <p style="color:#eaf2f8 !important;margin:5px 0 0 0;">
-        Registered Users, Visits और Module Activity
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    profiles = _all_profiles()
-    activity_records = _read_events("__activity__")
-    visitor_records = _read_events("__visitor__")
-
-    activities = []
-    for row in activity_records:
-        item = row.get("data") or {}
-        activities.append(item)
-
-    visitor_rows = []
-    for row in visitor_records:
-        item = row.get("data") or {}
-        visitor_rows.append(item)
-
-    module_counts = {}
-    for item in activities:
-        if item.get("activity") == "MODULE_OPEN":
-            module = item.get("module") or "-"
-            module_counts[module] = module_counts.get(module, 0) + 1
-
-    today = datetime.now().strftime("%d-%m-%Y")
-    total_users = len(profiles)
-    total_logins = sum(
-        1 for a in activities
-        if a.get("activity") in ("LOGIN", "ADMIN_LOGIN")
-    )
-    today_visits = sum(1 for r in visitor_rows if r.get("Date") == today)
-    unique_sessions = len({
-        r.get("Session ID") for r in visitor_rows if r.get("Session ID")
-    })
-    active_users = sum(1 for p in profiles if p.get("is_active", True))
-    total_module_opens = sum(module_counts.values())
-
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("👥 Registered Users", total_users)
-    c2.metric("🔐 Total Logins", total_logins)
-    c3.metric("📅 आज की Visits", today_visits)
-    c4.metric("🔵 Unique Sessions", unique_sessions)
-    c5.metric("🟢 Active Users", active_users)
-    c6.metric("🧩 Module Opens", total_module_opens)
-
-    st.markdown("---")
-    tab1, tab2, tab3 = st.tabs(["👥 Users", "🧩 Module Activity", "🕒 Activity History"])
-
-    with tab1:
-        user_rows = [{
-            "नाम": p.get("full_name", ""),
-            "पता": p.get("address", ""),
-            "मोबाइल": p.get("mobile", ""),
-            "Email": p.get("email", ""),
-            "Login ID": p.get("username", ""),
-            "Role": "Administrator" if p.get("role") == "admin" else "User",
-            "Status": "Active" if p.get("is_active", True) else "Inactive",
-        } for p in profiles]
-        if user_rows:
-            st.dataframe(user_rows, use_container_width=True, hide_index=True)
-        else:
-            st.info("अभी कोई registered user नहीं है।")
-
-    with tab2:
-        module_rows = [
-            {"Module": k, "कुल बार खोला गया": v}
-            for k, v in sorted(
-                module_counts.items(), key=lambda x: x[1], reverse=True
-            )
-        ]
-        if module_rows:
-            st.dataframe(module_rows, use_container_width=True, hide_index=True)
-        else:
-            st.info("अभी module activity उपलब्ध नहीं है।")
-
-    with tab3:
-        activity_rows = [{
-            "Login ID": a.get("username", ""),
-            "Activity": a.get("activity", ""),
-            "Module": a.get("module") or "-",
-            "समय": a.get("activity_time", ""),
-            "Session ID": a.get("session_id", ""),
-            "विवरण": a.get("details") or "",
-        } for a in activities]
-        if activity_rows:
-            st.dataframe(activity_rows, use_container_width=True, hide_index=True)
-        else:
-            st.info("अभी activity history उपलब्ध नहीं है।")
-
-    st.markdown("---")
-    st.subheader("📋 Visitor Session Records")
-    if visitor_rows:
-        st.dataframe(visitor_rows, use_container_width=True, hide_index=True)
-        csv_text = ""
-        try:
-            import csv
-            import io
-            output = io.StringIO()
-            fields = [
-                "Visitor ID", "Date", "Time", "Module",
-                "Session ID", "Username"
-            ]
-            writer = csv.DictWriter(output, fieldnames=fields)
-            writer.writeheader()
-            writer.writerows(visitor_rows)
-            csv_text = output.getvalue()
-        except Exception:
-            pass
-        if csv_text:
-            st.download_button(
-                "⬇️ Visitor CSV डाउनलोड करें",
-                data=csv_text.encode("utf-8-sig"),
-                file_name="visitor_report.csv",
-                mime="text/csv",
-                key="download_admin_visitor_report",
-            )
-    else:
-        st.info("अभी visitor session record उपलब्ध नहीं है।")
-
-if st.query_params.get("visitor_analytics") == "1":
-    if st.session_state.get("logged_role") == "admin":
-        _admin_visitor_analytics_page()
-    else:
-        st.error("⛔ यह पृष्ठ केवल Administrator के लिए है।")
-    st.stop()
-
-# ============================================================
-# MODULE ACTIVITY TRACKING
-# ============================================================
-params = st.query_params
-active_page = params.get("page", "dashboard")
-
-if st.session_state.get("authenticated") and st.session_state.get("logged_username"):
-    _module_names = {
-        "dashboard": "Main Dashboard",
-        "pl_surrender": "PL Surrender",
-        "increment_order": "Annual Increment",
-        "sanchalan_portal": "Sanchalan Portal",
-        "salary_arrear": "Salary Arrear",
-    }
-    _module_name = _module_names.get(str(active_page), str(active_page))
-    if st.session_state.get("last_tracked_module") != _module_name:
-        _record_activity(
-            "MODULE_OPEN",
-            _module_name,
-            f"page={active_page}",
-        )
-        st.session_state["last_tracked_module"] = _module_name
-        _visitor_record_visit(_module_name)
-
-# ============================================================
-# END INTEGRATED AUTH/SUPABASE LAYER
-# ============================================================
-
 
 # 3. ग्लोबल डेटा डेफिनिशन
 DESIG_LIST = [
@@ -1858,28 +175,50 @@ def make_short_name(full_name):
     return replaced
 
 def get_image_base64():
-    return _shared_image_base64()[0]
+    for ext in [".jpg", ".png", ".jpeg", ".JPG", ".PNG"]:
+        p = f"aloksingh{ext}"
+        if os.path.exists(p):
+            with open(p, "rb") as f:
+                return base64.b64encode(f.read()).decode()
+    return ""
 
-img_b64,img_mime=_shared_image_base64()
+img_b64 = get_image_base64()
 
 def generate_sun_rays_svg():
-    return _shared_sun_rays_svg("spinning-rays")
+    cx, cy = 130, 130
+    inner_r = 66
+    num_rays = 24
+    polygons = []
+    for i in range(num_rays):
+        deg = i * (360 / num_rays)
+        if i % 2 == 0:
+            outer_r = 122
+            half_base = 5.0
+            color = "#f1c40f"
+        else:
+            outer_r = 96
+            half_base = 3.5
+            color = "#ff9f43"
+        rad_tip = math.radians(deg)
+        rad_left = math.radians(deg - half_base)
+        rad_right = math.radians(deg + half_base)
+        x1 = cx + inner_r * math.cos(rad_left)
+        y1 = cy + inner_r * math.sin(rad_left)
+        xtip = cx + outer_r * math.cos(rad_tip)
+        ytip = cy + outer_r * math.sin(rad_tip)
+        x2 = cx + inner_r * math.cos(rad_right)
+        y2 = cy + inner_r * math.sin(rad_right)
+        polygons.append(f'<polygon points="{x1:.1f},{y1:.1f} {xtip:.1f},{ytip:.1f} {x2:.1f},{y2:.1f}" fill="{color}" />')
+    polys_str = "".join(polygons)
+    return f'''<svg class="spinning-rays" viewBox="0 0 260 260" width="260" height="260">
+        <circle cx="{cx}" cy="{cy}" r="{inner_r + 1}" stroke="#f39c12" stroke-width="3" fill="none" />
+        {polys_str}
+    </svg>'''
 
-rays_svg_html=generate_sun_rays_svg()
+rays_svg_html = generate_sun_rays_svg()
 
 st.markdown("""
 <style>
-    /* During a Streamlit rerun, hide the previous Login render instead of
-       keeping it visible. The dark app background prevents a white flash. */
-    [data-stale="true"] {
-        opacity:0 !important;
-        visibility:hidden !important;
-        pointer-events:none !important;
-        transition:none !important;
-        filter:none !important;
-    }
-    [data-testid="stAppViewBlockContainer"],
-    [data-testid="stMainBlockContainer"] { transition:none !important; }
     .stApp { background-color: #0c1d36; color: #ffffff; }
     
     .main-header {
@@ -1907,7 +246,6 @@ st.markdown("""
         display: flex;
         align-items: center;
         justify-content: center;
-        overflow: visible;
     }
 
     .spinning-rays {
@@ -2015,39 +353,6 @@ st.markdown("""
     }
     .back-btn:hover { background-color: #e74c3c; }
 
-    /* Dashboard-only navigation colors. The selectors are scoped to the
-       exact module button text so buttons INSIDE the original modules keep
-       their original appearance. */
-    div[data-testid="stButton"]:has(button[aria-label^="1. उपार्जित अवकाश समर्पण"]) > button {
-        background-color: #1f618d !important; border: 2px solid #2980b9 !important;
-        box-shadow: 0 4px 0 #154360 !important; border-radius: 8px !important;
-    }
-    div[data-testid="stButton"]:has(button[aria-label^="1. उपार्जित अवकाश समर्पण"]) > button:hover { background-color: #2980b9 !important; }
-
-    div[data-testid="stButton"]:has(button[aria-label^="2. वार्षिक सामयिक वेतन वृद्धि"]) > button {
-        background-color: #27ae60 !important; border: 2px solid #2ecc71 !important;
-        box-shadow: 0 4px 0 #1e8449 !important; border-radius: 8px !important;
-    }
-    div[data-testid="stButton"]:has(button[aria-label^="2. वार्षिक सामयिक वेतन वृद्धि"]) > button:hover { background-color: #2ecc71 !important; }
-
-    div[data-testid="stButton"]:has(button[aria-label^="3. संचालन पोर्टल भुगतान स्वीकृति"]) > button {
-        background-color: #8e44ad !important; border: 2px solid #9b59b6 !important;
-        box-shadow: 0 4px 0 #512e5f !important; border-radius: 8px !important;
-    }
-    div[data-testid="stButton"]:has(button[aria-label^="3. संचालन पोर्टल भुगतान स्वीकृति"]) > button:hover { background-color: #9b59b6 !important; }
-
-    div[data-testid="stButton"]:has(button[aria-label^="4. वेतन एरियर"]) > button {
-        background-color: #d35400 !important; border: 2px solid #e67e22 !important;
-        box-shadow: 0 4px 0 #a04000 !important; border-radius: 8px !important;
-    }
-    div[data-testid="stButton"]:has(button[aria-label^="4. वेतन एरियर"]) > button:hover { background-color: #e67e22 !important; }
-
-    div[data-testid="stButton"]:has(button[aria-label="⬅ मुख्य डैशबोर्ड पर वापस जाएँ"]) > button {
-        background-color: #c0392b !important; border: 1px solid #e74c3c !important;
-        box-shadow: none !important; border-radius: 6px !important;
-    }
-    div[data-testid="stButton"]:has(button[aria-label="⬅ मुख्य डैशबोर्ड पर वापस जाएँ"]) > button:hover { background-color: #e74c3c !important; }
-
     button, div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
         background-color: #2980b9 !important;
         color: #ffffff !important;
@@ -2082,41 +387,6 @@ st.markdown("""
         font-weight: 800 !important;
     }
 
-    /* FINAL dashboard module colors: key-scoped selectors are placed after
-       the generic Streamlit button rule so the generic blue cannot override them. */
-    div[class*="st-key-module_nav_pl"] button { background:#1f618d !important; border:2px solid #2980b9 !important; box-shadow:0 4px 0 #154360 !important; color:#fff !important; text-align:left !important; justify-content:flex-start !important; }
-    div[class*="st-key-module_nav_inc"] button { background:#27ae60 !important; border:2px solid #2ecc71 !important; box-shadow:0 4px 0 #1e8449 !important; color:#fff !important; text-align:left !important; justify-content:flex-start !important; }
-    div[class*="st-key-module_nav_sna"] button { background:#8e44ad !important; border:2px solid #9b59b6 !important; box-shadow:0 4px 0 #6c3483 !important; color:#fff !important; text-align:left !important; justify-content:flex-start !important; }
-    div[class*="st-key-module_nav_arr"] button { background:#d35400 !important; border:2px solid #e67e22 !important; box-shadow:0 4px 0 #a04000 !important; color:#fff !important; text-align:left !important; justify-content:flex-start !important; }
-    div[class*="st-key-module_nav_pl"] button:hover { background:#2980b9 !important; }
-    div[class*="st-key-module_nav_inc"] button:hover { background:#2ecc71 !important; }
-    div[class*="st-key-module_nav_sna"] button:hover { background:#9b59b6 !important; }
-    div[class*="st-key-module_nav_arr"] button:hover { background:#e67e22 !important; }
-    /* Streamlit button content is flex-based; align the inner content, not only the button box. */
-    div[class*="st-key-module_nav_pl"] button > div,
-    div[class*="st-key-module_nav_inc"] button > div,
-    div[class*="st-key-module_nav_sna"] button > div,
-    div[class*="st-key-module_nav_arr"] button > div { width:100% !important; justify-content:flex-start !important; text-align:left !important; }
-    div[class*="st-key-module_nav_pl"] button p,
-    div[class*="st-key-module_nav_inc"] button p,
-    div[class*="st-key-module_nav_sna"] button p,
-    div[class*="st-key-module_nav_arr"] button p { width:100% !important; text-align:left !important; margin:0 !important; }
-
-
-    /* Every module's Main Dashboard button uses the requested orange-red. */
-    div[class*="st-key-back_dashboard_pl"] button,
-    div[class*="st-key-back_dashboard_increment"] button,
-    div[class*="st-key-back_dashboard_sanchalan"] button,
-    div[class*="st-key-back_dashboard_arrear"] button {
-        background:#d35400 !important; border:2px solid #e67e22 !important;
-        box-shadow:0 4px 0 #a04000 !important; color:#fff !important;
-        font-weight:900 !important; border-radius:8px !important;
-    }
-    div[class*="st-key-back_dashboard_pl"] button:hover,
-    div[class*="st-key-back_dashboard_increment"] button:hover,
-    div[class*="st-key-back_dashboard_sanchalan"] button:hover,
-    div[class*="st-key-back_dashboard_arrear"] button:hover { background:#e67e22 !important; }
-
     .custom-table {
         width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px;
     }
@@ -2131,27 +401,6 @@ st.markdown("""
 
 params = st.query_params
 active_page = params.get("page", "dashboard")
-
-# Record which module the logged-in user is currently using.
-# This does not change any module logic; it only writes an activity row.
-if st.session_state.get("authenticated") and st.session_state.get("logged_username"):
-    _module_names = {
-        "dashboard": "Main Dashboard",
-        "pl_surrender": "PL Surrender",
-        "increment_order": "Annual Increment",
-        "sanchalan_portal": "Sanchalan Portal",
-        "salary_arrear": "Salary Arrear",
-    }
-    _module_name = _module_names.get(str(active_page), str(active_page))
-    if st.session_state.get("last_tracked_module") != _module_name:
-        save_activity(
-            st.session_state["logged_username"],
-            "MODULE_OPEN",
-            _module_name,
-            f"page={active_page}",
-        )
-        st.session_state["last_tracked_module"] = _module_name
-        _visitor_record_visit(_module_name)
 
 # =============================================================================
 # पृष्ठ 1: मुख्य डैशबोर्ड
@@ -2574,97 +823,6 @@ def calculate_arrear(
     totals = {k: _round_rupee(v) for k, v in totals.items()}
     return {"monthly_rows": rows, "totals": totals, "reconciliation": reconciliation}
 
-
-def _build_arrear_excel_workbook(emp: dict, office_data: dict):
-    from io import BytesIO
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Border, Side, Alignment, Protection
-    from openpyxl.utils import get_column_letter
-    from openpyxl.worksheet.page import PageMargins
-
-    rows=emp.get("monthly_rows",[]) or []
-    wb=Workbook(); inp=wb.active; inp.title="MASTER_INPUT"; calc=wb.create_sheet("CALCULATION"); stmt=wb.create_sheet("ARREAR_STATEMENT"); ref=wb.create_sheet("FORMULA_REFERENCE")
-    thin=Side(style="thin",color="000000"); med=Side(style="medium",color="000000"); border=Border(left=thin,right=thin,top=thin,bottom=thin)
-    fills={"dark":PatternFill("solid",fgColor="34495E"),"blue":PatternFill("solid",fgColor="2471A3"),"purple":PatternFill("solid",fgColor="7D3C98"),"orange":PatternFill("solid",fgColor="B9770E"),"red":PatternFill("solid",fgColor="884C3C"),"green":PatternFill("solid",fgColor="1E8449"),"light":PatternFill("solid",fgColor="EAF2F8"),"total":PatternFill("solid",fgColor="F4F6F7"),"net":PatternFill("solid",fgColor="E8F8F0"),"white":PatternFill("solid",fgColor="FFFFFF")}
-    # Input sheet
-    headers=["माह एवं वर्ष","कार्य दिवस","माह के दिन","देय DA %","आहरित DA %","HRA %","देय मूल वेतन ₹","आहरित मूल वेतन ₹","देय GPF ₹","आहरित GPF ₹","देय RGHS ₹","आहरित RGHS ₹","देय SI ₹","आहरित SI ₹","GPF में जमा DA एरियर ₹","आयकर ₹","अन्य कटौतियाँ ₹"]
-    inp.merge_cells("A1:Q1"); inp["A1"]="MASTER INPUT — केवल यहाँ input values बदलें"; inp["A1"].fill=fills["dark"]; inp["A1"].font=Font(color="FFFFFF",bold=True,size=14); inp["A1"].alignment=Alignment(horizontal="center")
-    inp["A2"]="Editable input sheet. CALCULATION और ARREAR_STATEMENT की formulas protected हैं."; inp["A2"].font=Font(color="C0392B",italic=True)
-    for c,h in enumerate(headers,1):
-        x=inp.cell(3,c,h); x.fill=fills["dark"]; x.font=Font(color="FFFFFF",bold=True); x.alignment=Alignment(horizontal="center",vertical="center",wrap_text=True); x.border=border
-    for i,r in enumerate(rows,4):
-        vals=[r.get("month_year",""),r.get("worked_days",0),r.get("days_in_month",0),r.get("da_pct",0),r.get("cash_da_pct",r.get("da_pct",0)),r.get("hra_pct",0),r.get("due_basic",0),r.get("drawn_basic",0),r.get("due_gpf",0),max(0,float(r.get("due_gpf",0) or 0)-float(r.get("diff_gpf",0) or 0)),r.get("due_rghs",0),max(0,float(r.get("due_rghs",0) or 0)-float(r.get("diff_rghs",0) or 0)),r.get("due_si",0),max(0,float(r.get("due_si",0) or 0)-float(r.get("diff_si",0) or 0)),r.get("gpf_deposit",0),r.get("income_tax",0),r.get("other_ded",0)]
-        for c,v in enumerate(vals,1):
-            x=inp.cell(i,c,v); x.fill=fills["white"]; x.border=border; x.alignment=Alignment(horizontal="center",vertical="center",wrap_text=True); x.protection=Protection(locked=False); x.number_format='0.00' if c in (4,5) else '#,##0'
-    for c,w in enumerate([18,11,11,9,10,9,16,16,14,15,14,15,12,14,18,12,15],1): inp.column_dimensions[get_column_letter(c)].width=w
-    inp.freeze_panes="A4"; inp.sheet_view.showGridLines=False
-
-    # Calculation sheet: all formulas.
-    ch=["क्र.","माह एवं वर्ष","DA %","HRA %","देय मूल वेतन","देय DA","देय HRA","देय कुल","आहरित मूल वेतन","आहरित DA","आहरित HRA","आहरित कुल","मूल वेतन अंतर","DA अंतर","HRA अंतर","कुल अंतर","GPF अंतर","RGHS अंतर","SI अंतर","GPF में जमा DA एरियर","आयकर","अन्य कटौतियाँ","कटौतियों का कुल योग","शुद्ध देय राशि"]
-    for c,h in enumerate(ch,1):
-        x=calc.cell(1,c,h); x.fill=fills["dark"]; x.font=Font(color="FFFFFF",bold=True); x.alignment=Alignment(horizontal="center",wrap_text=True); x.border=border
-    for i in range(len(rows)):
-        rr=i+2; ir=i+4
-        fs=[i+1,f"=MASTER_INPUT!A{ir}",f"=MASTER_INPUT!D{ir}",f"=MASTER_INPUT!F{ir}",f"=MASTER_INPUT!G{ir}",f"=E{rr}*C{rr}/100",f"=E{rr}*D{rr}/100",f"=SUM(E{rr}:G{rr})",f"=MASTER_INPUT!H{ir}",f"=I{rr}*MASTER_INPUT!E{ir}/100",f"=I{rr}*D{rr}/100",f"=SUM(I{rr}:K{rr})",f"=MAX(0,E{rr}-I{rr})",f"=MAX(0,F{rr}-J{rr})",f"=MAX(0,G{rr}-K{rr})",f"=SUM(M{rr}:O{rr})",f"=MAX(0,MASTER_INPUT!I{ir}-MASTER_INPUT!J{ir})",f"=MAX(0,MASTER_INPUT!K{ir}-MASTER_INPUT!L{ir})",f"=MAX(0,MASTER_INPUT!M{ir}-MASTER_INPUT!N{ir})",f"=MASTER_INPUT!O{ir}",f"=MASTER_INPUT!P{ir}",f"=MASTER_INPUT!Q{ir}",f"=SUM(Q{rr}:V{rr})",f"=MAX(0,P{rr}-W{rr})"]
-        for c,v in enumerate(fs,1):
-            x=calc.cell(rr,c,v); x.border=border; x.alignment=Alignment(horizontal="center",vertical="center",wrap_text=True); x.protection=Protection(locked=True); x.number_format='0.00' if c in (3,4) else '#,##0'
-    total=len(rows)+2; calc.cell(total,2,"कुल योग").font=Font(bold=True)
-    for c in range(5,25):
-        col=get_column_letter(c); x=calc.cell(total,c,f"=SUM({col}2:{col}{total-1})"); x.fill=fills["total"]; x.font=Font(bold=True); x.border=border; x.number_format='#,##0'
-    for c in range(1,25): calc.column_dimensions[get_column_letter(c)].width=13
-    calc.sheet_view.showGridLines=False; calc.freeze_panes="A2"; calc.protection.sheet=True; calc.protection.set_password("ARREAR_FORMULA_LOCK")
-
-    # Statement sheet: 22 columns, white printable layout matching PDF.
-    stmt.sheet_view.showGridLines=False
-    stmt.merge_cells("A1:V1"); stmt["A1"]=f"कार्यालय {office_data.get('office_name','')}"; stmt["A1"].font=Font(size=16,bold=True); stmt["A1"].alignment=Alignment(horizontal="center"); stmt["A1"].fill=fills["white"]
-    stmt.merge_cells("A2:V2"); stmt["A2"]="अंतर विवरण प्रपत्र — वेतन एरियर (SALARY ARREAR STATEMENT)"; stmt["A2"].font=Font(size=11,bold=True); stmt["A2"].alignment=Alignment(horizontal="center"); stmt["A2"].fill=fills["white"]
-    info=[("A3:F3",f"कर्मचारी का नाम: {emp.get('emp_name','')}"),("G3:J3",f"Employee ID: {emp.get('employee_id','')}"),("K3:P3",f"पद: {emp.get('designation','')}"),("Q3:V3",f"PAN: {emp.get('pan','')}"),("A4:F4",f"खाता संख्या: {emp.get('account','')} ({emp.get('bank','')})"),("G4:J4",f"एरियर अवधि: {emp.get('start_date','')} से {emp.get('end_date','')}"),("K4:P4",f"कारण: {emp.get('reason','')}"),("Q4:V4",f"Pay Level: {emp.get('old_pay_level','-')} → {emp.get('new_pay_level','-')}")]
-    for rng,val in info: stmt.merge_cells(rng); x=stmt[rng.split(':')[0]]; x.value=val; x.font=Font(size=8,bold=True); x.alignment=Alignment(wrap_text=True,vertical="center"); x.fill=fills["white"]
-    stmt.merge_cells("A6:A8"); stmt["A6"]="क्र.\nसं."; stmt.merge_cells("B6:B8"); stmt["B6"]="माह एवं वर्ष\nDA % | HRA % | दिन"; stmt.merge_cells("C6:N6"); stmt["C6"]="आय"; stmt.merge_cells("C7:F7"); stmt["C7"]="देय वेतन"; stmt.merge_cells("G7:J7"); stmt["G7"]="आहरित वेतन"; stmt.merge_cells("K7:N7"); stmt["K7"]="अंतर"; stmt.merge_cells("O6:U6"); stmt["O6"]="कटौतियाँ"; stmt.merge_cells("V6:V8"); stmt["V6"]="शुद्ध देय राशि"
-    for cell,fill in [("A6","dark"),("B6","dark"),("C6","blue"),("C7","purple"),("G7","blue"),("K7","orange"),("O6","red"),("V6","green")]: stmt[cell].fill=fills[fill]; stmt[cell].font=Font(color="FFFFFF",bold=True); stmt[cell].alignment=Alignment(horizontal="center",vertical="center",wrap_text=True)
-    subs=["मूल वेतन","महंगाई भत्ता","मकान किराया भत्ता","कुल योग","मूल वेतन","महंगाई भत्ता","मकान किराया भत्ता","कुल योग","मूल वेतन का अंतर","महंगाई भत्ते का अंतर","मकान किराये का अंतर","कुल योग का अंतर","GPF अंतर","RGHS अंतर","SI अंतर","GPF में जमा DA एरियर","आयकर","अन्य कटौतियाँ","कटौतियों का कुल योग"]
-    for c,h in enumerate(subs,3): stmt.cell(8,c,h).fill=fills["light"]; stmt.cell(8,c).font=Font(bold=True,size=7); stmt.cell(8,c).alignment=Alignment(horizontal="center",vertical="center",wrap_text=True); stmt.cell(8,c).border=border
-    for i in range(len(rows)):
-        sr=9+i; cr=2+i; stmt.cell(sr,1,f"=CALCULATION!A{cr}"); stmt.cell(sr,2,f'=CALCULATION!B{cr}&CHAR(10)&"DA "&TEXT(CALCULATION!C{cr},"0")&"% | HRA "&TEXT(CALCULATION!D{cr},"0")&"% | "&MASTER_INPUT!B{i+4}&"/"&MASTER_INPUT!C{i+4}&" दिन"')
-        for c,src in enumerate(range(5,25),3): stmt.cell(sr,c,f"=CALCULATION!{get_column_letter(src)}{cr}")
-        for c in range(1,23): stmt.cell(sr,c).border=border; stmt.cell(sr,c).alignment=Alignment(horizontal="center",vertical="center",wrap_text=True); stmt.cell(sr,c).number_format='#,##0'; stmt.cell(sr,c).protection=Protection(locked=True)
-    tr=9+len(rows); stmt.cell(tr,2,"कुल योग").font=Font(bold=True)
-    for c in range(3,23):
-        src=get_column_letter(c+2); x=stmt.cell(tr,c,f"=SUM(CALCULATION!{src}2:{src}{total-1})"); x.fill=fills["total"]; x.font=Font(bold=True); x.border=border; x.number_format='#,##0'
-    sr=tr+2; stmt.merge_cells(start_row=sr,start_column=1,end_row=sr,end_column=22); stmt.cell(sr,1,"सारांश").fill=fills["light"]; stmt.cell(sr,1).font=Font(bold=True,size=10)
-    summary=[("ग्रॉस देय राशि",f"=SUM(CALCULATION!P2:P{total-1})"),("ग्रॉस रिडक्शन / कुल कटौती",f"=SUM(CALCULATION!W2:W{total-1})"),("शुद्ध देय राशि",f"=SUM(CALCULATION!X2:X{total-1})")]
-    for rr,(label,formula) in enumerate(summary,sr+1):
-        stmt.merge_cells(start_row=rr,start_column=1,end_row=rr,end_column=17); stmt.cell(rr,1,label).font=Font(bold=True); stmt.merge_cells(start_row=rr,start_column=18,end_row=rr,end_column=22); stmt.cell(rr,18,formula).font=Font(bold=True,size=9); stmt.cell(rr,18).number_format='₹ #,##0';
-        for c in range(1,23): stmt.cell(rr,c).border=border
-        if label=="शुद्ध देय राशि":
-            for c in range(1,23): stmt.cell(rr,c).fill=fills["net"]
-    aw=sr+5; stmt.merge_cells(start_row=aw,start_column=1,end_row=aw,end_column=22); stmt.cell(aw,1,"शुद्ध देय राशि शब्दों में: कृपया राशि बदलने पर इस पंक्ति को आवश्यकतानुसार अपडेट करें।").alignment=Alignment(wrap_text=True)
-    cert=aw+2; stmt.merge_cells(start_row=cert,start_column=1,end_row=cert,end_column=22); stmt.cell(cert,1,"प्रमाणीकरण: प्रमाणित किया जाता है कि उपर्युक्त एरियर राशि का भुगतान पहले किसी अन्य बिल के साथ नहीं किया गया है। यदि भविष्य में यह पाया जाता है कि उक्त राशि का भुगतान पहले किया जा चुका है, तो उक्त राशि की रिकवरी नियमानुसार की जाए।").alignment=Alignment(wrap_text=True,vertical="top"); stmt.cell(cert,1).font=Font(size=8)
-    sig=cert+3
-    for startcol,endcol,text in [(1,7,"कर्मचारी के हस्ताक्षर\n\nनाम: ____________________"),(8,14,"लिपिक के हस्ताक्षर\n\nनाम: ____________________"),(15,22,"संस्था प्रधान के हस्ताक्षर\n\nनाम/मुहर: ____________________")]:
-        stmt.merge_cells(start_row=sig,start_column=startcol,end_row=sig+2,end_column=endcol); stmt.cell(sig,startcol,text).alignment=Alignment(horizontal="center",vertical="center",wrap_text=True); stmt.cell(sig,startcol).border=border
-    foot=sig+4; stmt.merge_cells(start_row=foot,start_column=1,end_row=foot,end_column=22); stmt.cell(foot,1,"सॉफ्टवेयर डेवलपर: आलोक कुमार सिंह, वरिष्ठ अध्यापक, राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी | ईमेल: alokjobner@gmail.com").font=Font(size=7,italic=True,color="333333")
-    for c,w in enumerate([5,16]+[9]*20,1): stmt.column_dimensions[get_column_letter(c)].width=w
-    for r in range(1,foot+1):
-        for c in range(1,23):
-            if stmt.cell(r,c).fill.fill_type is None: stmt.cell(r,c).fill=fills["white"]
-            if r>=6: stmt.cell(r,c).border=border
-    for r in (6,7,8): stmt.row_dimensions[r].height=30
-    stmt.freeze_panes="C9"; stmt.page_setup.orientation="landscape"; stmt.page_setup.paperSize=stmt.PAPERSIZE_A4; stmt.page_setup.fitToWidth=1; stmt.page_setup.fitToHeight=0; stmt.sheet_properties.pageSetUpPr.fitToPage=True; stmt.page_margins=PageMargins(left=.2,right=.2,top=.3,bottom=.3,header=.1,footer=.1); stmt.print_title_rows="1:8"; stmt.print_area=f"A1:V{foot}"; stmt.oddFooter.center.text="Page &P of &N"; stmt.protection.sheet=True; stmt.protection.set_password("ARREAR_STATEMENT_LOCK")
-
-    ref.append(["Sheet","Purpose"]); ref.append(["MASTER_INPUT","केवल input values बदलें"]); ref.append(["CALCULATION","सभी calculation formulas protected"]); ref.append(["ARREAR_STATEMENT","PDF जैसा white printable statement; formulas protected"])
-    for row in ref.iter_rows():
-        for x in row: x.border=border; x.alignment=Alignment(wrap_text=True,vertical="top")
-    ref.column_dimensions["A"].width=25; ref.column_dimensions["B"].width=80; ref.sheet_view.showGridLines=False
-    bio=BytesIO(); wb.save(bio); bio.seek(0); return bio.getvalue()
-
-
-def _show_module_cloud_status(module_key):
-    if not st.session_state.get("authenticated"): return
-    saved=st.session_state.get(f"supabase_saved_{module_key}")
-    if saved is True: st.caption(f"☁️ Supabase: {module_key} data सुरक्षित रूप से saved | {st.session_state.get(f'supabase_saved_at_{module_key}','')}")
-    elif saved is False: st.warning(f"⚠️ Supabase: {module_key} data का पिछला save असफल रहा था।")
-
 if active_page == "dashboard":
     st.markdown("""
     <div class="main-header">
@@ -2682,7 +840,7 @@ if active_page == "dashboard":
         <div class="profile-card">
             <div class="sun-box">
                 {rays_svg_html}
-                <div class="profile-center-img" style="background-image: url('data:{img_mime};base64,{img_b64}');"></div>
+                <div class="profile-center-img" style="background-image: url('data:image/jpeg;base64,{img_b64}');"></div>
             </div>
             <div style="color: #f39c12; font-weight: bold; font-size: 13px; margin-top: 4px;">★ सॉफ्टवेयर डेवलपर ★</div>
             <h3 style="color: #ffffff; margin: 4px 0 6px 0;">आलोक कुमार सिंह</h3>
@@ -2707,33 +865,29 @@ if active_page == "dashboard":
 
         st.markdown("<h4 style='color:#5dade2; margin-bottom: 14px;'>कार्यालय आदेश मॉड्यूल चयन करें:</h4>", unsafe_allow_html=True)
 
-        # IMPORTANT: Do not use full-page HTML href navigation here.
-        # A full href (/?page=...) can create a new Streamlit browser session,
-        # which resets st.session_state and appears as an unexpected logout.
-        # Streamlit buttons keep the same WebSocket/session while changing the
-        # query parameter, so one login remains valid across all modules.
-        with st.container(key="module_nav_pl"):
-            if st.button("1. उपार्जित अवकाश समर्पण (PL Surrender) आदेश जनरेटर ▶", key="nav_pl_surrender", use_container_width=True):
-                st.query_params["page"] = "pl_surrender"; st.rerun()
-        with st.container(key="module_nav_inc"):
-            if st.button("2. वार्षिक सामयिक वेतन वृद्धि (Annual Increment) आदेश जनरेटर ▶", key="nav_increment_order", use_container_width=True):
-                st.query_params["page"] = "increment_order"; st.rerun()
-        with st.container(key="module_nav_sna"):
-            if st.button("3. संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order) जनरेटर ▶", key="nav_sanchalan_portal", use_container_width=True):
-                st.query_params["page"] = "sanchalan_portal"; st.rerun()
-        with st.container(key="module_nav_arr"):
-            if st.button("4. वेतन एरियर (Salary Arrear) अंतर विवरण प्रपत्र एवं गणना (7th CPC Landscape) ▶", key="nav_salary_arrear", use_container_width=True):
-                st.query_params["page"] = "salary_arrear"; st.rerun()
-        st.markdown('<div class="menu-btn-rel">5. कार्यमुक्ति / कार्यग्रहण (Relieving / Joining) आदेश [शीघ्र उपलब्ध]</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <a href="/?page=pl_surrender" target="_self" class="menu-btn-pl">
+            1. उपार्जित अवकाश समर्पण (PL Surrender) आदेश जनरेटर ▶
+        </a>
+        <a href="/?page=increment_order" target="_self" class="menu-btn-inc">
+            2. वार्षिक सामयिक वेतन वृद्धि (Annual Increment) आदेश जनरेटर ▶
+        </a>
+        <a href="/?page=sanchalan_portal" target="_self" class="menu-btn-san">
+            3. संचालन पोर्टल भुगतान स्वीकृति आदेश (SNA Sanction Order) जनरेटर ▶
+        </a>
+        <a href="/?page=salary_arrear" target="_self" class="menu-btn-arr">
+            4. वेतन एरियर (Salary Arrear) अंतर विवरण प्रपत्र एवं गणना (7th CPC Landscape) ▶
+        </a>
+        <div class="menu-btn-rel">
+            5. कार्यमुक्ति / कार्यग्रहण (Relieving / Joining) आदेश [शीघ्र उपलब्ध]
+        </div>
+        """, unsafe_allow_html=True)
 
 # =============================================================================
 # पृष्ठ 2: उपार्जित अवकाश समर्पण (PL Surrender) विंडो
 # =============================================================================
 elif active_page == "pl_surrender":
-    _show_module_cloud_status("pl_surrender")
-    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="back_dashboard_pl", use_container_width=False):
-        st.query_params["page"] = "dashboard"
-        st.rerun()
+    st.markdown('<a href="/?page=dashboard" target="_self" class="back-btn">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
 
     if "pl_bundle_loaded" not in st.session_state:
         pl_bundle = load_json_data(PL_DATA_FILE)
@@ -2955,10 +1109,7 @@ elif active_page == "pl_surrender":
 # पृष्ठ 3: सामयिक वार्षिक वेतन वृद्धि (Annual Increment) विंडो
 # =============================================================================
 elif active_page == "increment_order":
-    _show_module_cloud_status("increment_order")
-    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="back_dashboard_increment", use_container_width=False):
-        st.query_params["page"] = "dashboard"
-        st.rerun()
+    st.markdown('<a href="/?page=dashboard" target="_self" class="back-btn">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
 
     if "inc_bundle_loaded" not in st.session_state:
         inc_bundle = load_json_data(INC_DATA_FILE)
@@ -3171,10 +1322,7 @@ elif active_page == "increment_order":
 # पृष्ठ 4: संचालन पोर्टल भुगतान स्वीकृति आदेश (Sanchalan Portal Sanction) विंडो
 # =============================================================================
 elif active_page == "sanchalan_portal":
-    _show_module_cloud_status("sanchalan_portal")
-    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="back_dashboard_sanchalan", use_container_width=False):
-        st.query_params["page"] = "dashboard"
-        st.rerun()
+    st.markdown('<a href="/?page=dashboard" target="_self" class="back-btn">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
 
     if "san_bundle_loaded" not in st.session_state:
         san_bundle = load_json_data(SAN_DATA_FILE, {"office_data": {}, "items": []})
@@ -3612,13 +1760,10 @@ elif active_page == "sanchalan_portal":
 # पृष्ठ 5: वेतन एरियर (Salary Arrear) गणना एवं अंतर विवरण प्रपत्र मॉड्यूल (7th CPC Landscape Final Fixes)
 # =============================================================================
 elif active_page == "salary_arrear":
-    _show_module_cloud_status("salary_arrear")
     # IMPORTANT: The arrear calculation engine is intentionally kept outside
     # app.py. This page only collects UI inputs, calls calculate_arrear(), and
     # renders the returned data. Other modules/pages are left untouched.
-    if st.button("⬅ मुख्य डैशबोर्ड पर वापस जाएँ", key="back_dashboard_arrear", use_container_width=False):
-        st.query_params["page"] = "dashboard"
-        st.rerun()
+    st.markdown('<a href="/?page=dashboard" target="_self" class="back-btn">⬅ मुख्य डैशबोर्ड पर वापस जाएँ</a>', unsafe_allow_html=True)
 
     if "arrear_bundle_loaded" not in st.session_state:
         arr_bundle = load_json_data(ARREAR_DATA_FILE, {"office_data": {}, "employees": []})
@@ -3727,6 +1872,7 @@ elif active_page == "salary_arrear":
             due_basic_def = st.number_input(
                 "प्रारंभिक देय मूल वेतन (स्वतः Pay Fixation) ₹:",
                 min_value=0,
+                value=int(auto_due_basic),
                 step=100,
                 disabled=True,
                 key="w_arr_dub_auto"
@@ -3843,36 +1989,8 @@ elif active_page == "salary_arrear":
                 })
                 cur_off = {"office_name": arr_office.strip(), "order_no": arr_order_no.strip(), "reason": arr_reason.strip(), "sub_treasury": arr_treasury.strip()}
                 save_json_data(ARREAR_DATA_FILE, {"office_data": cur_off, "employees": st.session_state.arr_employees})
-                # ============================================================
-                # SUPABASE ARREAR SAVE — सामान्य User + Admin दोनों के लिए
-                # local application login ही पर्याप्त है।
-                # ============================================================
-                try:
-                    logged_username = str(st.session_state.get("logged_username") or "").strip().lower()
-                    if not logged_username:
-                        raise RuntimeError("Current logged-in username उपलब्ध नहीं है।")
-
-                    result = save_module_data_for_local_user(
-                        logged_username,
-                        "arrear",
-                        {
-                            "office_data": cur_off,
-                            "employees": st.session_state.arr_employees,
-                        },
-                    )
-
-                    if result is None:
-                        raise RuntimeError("Supabase module_data save ने कोई response नहीं दिया।")
-
-                    st.success("✅ Arrear data Supabase में सफलतापूर्वक save/update हो गया।")
-
-                except Exception as e:
-                    st.error(
-                        f"❌ Supabase Arrear Save Error: {type(e).__name__}: {e}"
-                    )
-
                 st.success(f"कार्मिक '{arr_emp_name}' का माह-वार एरियर सफलतापूर्वक गणना कर लिया गया है।")
-                #st.rerun()
+                st.rerun()
 
     if st.session_state.arr_employees:
         st.markdown("<hr style='border-color:#1b4f72;margin:12px 0;'>", unsafe_allow_html=True)
@@ -4266,16 +2384,3 @@ elif active_page == "salary_arrear":
             file_name=f"Arrear_Statement_Final_{emp.get('emp_name','employee').replace(' ','_')}.html",
             mime="text/html"
         )
-
-        try:
-            excel_bytes = _build_arrear_excel_workbook(emp, st.session_state.arr_office or {})
-            st.download_button(
-                label="📊 Salary Arrear Statement — PDF जैसा Formula Excel डाउनलोड करें",
-                data=excel_bytes,
-                file_name=f"Arrear_Statement_Formula_{emp.get('emp_name','employee').replace(' ','_')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="download_arrear_formula_excel",
-            )
-        except Exception as exc:
-            st.error(f"Excel workbook बनाने में त्रुटि: {type(exc).__name__}: {exc}")
-
