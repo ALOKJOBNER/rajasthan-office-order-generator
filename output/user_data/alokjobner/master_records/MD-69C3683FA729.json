@@ -1,0 +1,164 @@
+[
+  {
+    "FLD-E950A7F66810": "Composite School Grant (Elementary)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Composite School Grant",
+    "FLD-DE4C879873A8": "Elementary",
+    "_record_id": "REC-A7A26F5F98FA",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Composite School Grant (Secondary)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Composite School Grant",
+    "FLD-DE4C879873A8": "Secondary",
+    "_record_id": "REC-13786DDF5B5A",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Community Mobilization (Elementary)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Community Mobilization / बाल समारोह",
+    "FLD-DE4C879873A8": "Elementary",
+    "_record_id": "REC-A63A3A287057",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Community Mobilization (Secondary)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Community Mobilization / बाल समारोह",
+    "FLD-DE4C879873A8": "Secondary",
+    "_record_id": "REC-E2A3BA2BF94C",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Elementary Training of SMC/SDMC",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "SMC/SDMC Training",
+    "FLD-DE4C879873A8": "Elementary",
+    "_record_id": "REC-62A68F5AAC50",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Training and Meeting of SDMC (Secondary)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "SMC/SDMC Training and Meeting",
+    "FLD-DE4C879873A8": "Secondary",
+    "_record_id": "REC-61A4F15B7BEF",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Library Grant (Elementary)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Library Grant",
+    "FLD-DE4C879873A8": "Elementary",
+    "_record_id": "REC-1418C74290D4",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Library Grant (Secondary)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Library Grant",
+    "FLD-DE4C879873A8": "Secondary",
+    "_record_id": "REC-68225C4E9563",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Sports Grant (Elementary)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Sports Grant",
+    "FLD-DE4C879873A8": "Elementary",
+    "_record_id": "REC-AB72E6A8C4BD",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Sports Grant (Secondary upto XII)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Sports Grant",
+    "FLD-DE4C879873A8": "Secondary",
+    "_record_id": "REC-BEF4D440E06E",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Escort Allowance (Elementary)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "CWSN / Escort Allowance",
+    "FLD-DE4C879873A8": "Elementary",
+    "_record_id": "REC-3D706D126EE4",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Escort Allowance (Secondary School)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "CWSN / Escort Allowance",
+    "FLD-DE4C879873A8": "Secondary",
+    "_record_id": "REC-2A1D62D6EB9D",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Rani Laxmibai Atma Raksha Prashikshan (Elem.)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Self Defence Training",
+    "FLD-DE4C879873A8": "Elementary",
+    "_record_id": "REC-7F89505D974E",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Rani Laxmibai Atma Raksha Prashikshan (Sec.)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Self Defence Training",
+    "FLD-DE4C879873A8": "Secondary",
+    "_record_id": "REC-D1A8854E3C0F",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Adolescent Programme for Girls (Elementary)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Adolescent Programme for Girls",
+    "FLD-DE4C879873A8": "Elementary",
+    "_record_id": "REC-B76B8D29BBEE",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Adolescent Programme for Girls (Secondary)",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "Adolescent Programme for Girls",
+    "FLD-DE4C879873A8": "Secondary",
+    "_record_id": "REC-8CD5866859D2",
+    "_created_at": "2026-10-03T12:25:47",
+    "_updated_at": "2026-10-03T12:25:47"
+  },
+  {
+    "FLD-E950A7F66810": "Youth and Eco Club",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "",
+    "FLD-DE4C879873A8": "Elementary",
+    "_record_id": "REC-62C5E5670C11",
+    "_created_at": "2026-10-05T22:39:21",
+    "_updated_at": "2026-10-05T22:39:21"
+  },
+  {
+    "FLD-E950A7F66810": "Youth and Eco Club",
+    "FLD-D618858C159A": "",
+    "FLD-A026913983D7": "",
+    "FLD-DE4C879873A8": "Secondary",
+    "_record_id": "REC-15FE86C6E0C8",
+    "_created_at": "2026-10-05T22:39:22",
+    "_updated_at": "2026-10-05T22:39:22"
+  }
+]

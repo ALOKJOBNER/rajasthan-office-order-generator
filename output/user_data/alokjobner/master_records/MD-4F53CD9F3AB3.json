@@ -1,0 +1,52 @@
+[
+  {
+    "FLD-9D9484E13677": "Dummy Beneficiary 01",
+    "FLD-E437C0134A76": "State Bank of India",
+    "FLD-A43B25CA0476": "Jaipur Main",
+    "FLD-B8428ACFCB27": "200000000001",
+    "FLD-227D5887B95B": "SBIN0000001",
+    "_record_id": "REC-D79AF903FBE1",
+    "_created_at": "2026-10-03T08:27:05",
+    "_updated_at": "2026-10-03T08:27:05"
+  },
+  {
+    "FLD-9D9484E13677": "Dummy Beneficiary 02",
+    "FLD-E437C0134A76": "Bank of Baroda",
+    "FLD-A43B25CA0476": "Jaipur Branch",
+    "FLD-B8428ACFCB27": "200000000002",
+    "FLD-227D5887B95B": "BARB0000002",
+    "_record_id": "REC-693047B6E32C",
+    "_created_at": "2026-10-03T08:27:05",
+    "_updated_at": "2026-10-03T08:27:05"
+  },
+  {
+    "FLD-9D9484E13677": "Dummy Beneficiary 03",
+    "FLD-E437C0134A76": "Punjab National Bank",
+    "FLD-A43B25CA0476": "Sambhar Branch",
+    "FLD-B8428ACFCB27": "200000000003",
+    "FLD-227D5887B95B": "PUNB0000003",
+    "_record_id": "REC-BBEBB8FC816A",
+    "_created_at": "2026-10-03T08:27:05",
+    "_updated_at": "2026-10-03T08:27:05"
+  },
+  {
+    "FLD-9D9484E13677": "Dummy Beneficiary 04",
+    "FLD-E437C0134A76": "Canara Bank",
+    "FLD-A43B25CA0476": "Jobner Branch",
+    "FLD-B8428ACFCB27": "200000000004",
+    "FLD-227D5887B95B": "CNRB0000004",
+    "_record_id": "REC-296873387CE6",
+    "_created_at": "2026-10-03T08:27:05",
+    "_updated_at": "2026-10-03T08:27:05"
+  },
+  {
+    "FLD-9D9484E13677": "Dummy Beneficiary 05",
+    "FLD-E437C0134A76": "Union Bank of India",
+    "FLD-A43B25CA0476": "Chomu Branch",
+    "FLD-B8428ACFCB27": "200000000005",
+    "FLD-227D5887B95B": "UBIN0000005",
+    "_record_id": "REC-DD54162C0583",
+    "_created_at": "2026-10-03T08:27:05",
+    "_updated_at": "2026-10-03T08:27:05"
+  }
+]

@@ -1,0 +1,72 @@
+[
+  {
+    "FLD-8A0C37F6C68E": "Dummy Vendor 01",
+    "FLD-22F3F29DDD0D": "State Bank of India",
+    "FLD-7399EA591182": "Jaipur Main",
+    "FLD-4A173CB64EC4": "100000000001",
+    "FLD-1F09DD515ED4": "SBIN0000001",
+    "_record_id": "REC-0EEEE6E4B65B",
+    "_created_at": "2026-10-03T08:27:05",
+    "_updated_at": "2026-10-03T08:27:05"
+  },
+  {
+    "FLD-8A0C37F6C68E": "Dummy Vendor 02",
+    "FLD-22F3F29DDD0D": "Bank of Baroda",
+    "FLD-7399EA591182": "Jaipur Branch",
+    "FLD-4A173CB64EC4": "100000000002",
+    "FLD-1F09DD515ED4": "BARB0000002",
+    "_record_id": "REC-79EE4F9480F9",
+    "_created_at": "2026-10-03T08:27:05",
+    "_updated_at": "2026-10-03T08:27:05"
+  },
+  {
+    "FLD-8A0C37F6C68E": "Dummy Vendor 03",
+    "FLD-22F3F29DDD0D": "Punjab National Bank",
+    "FLD-7399EA591182": "Sambhar Branch",
+    "FLD-4A173CB64EC4": "100000000003",
+    "FLD-1F09DD515ED4": "PUNB0000003",
+    "_record_id": "REC-6F7C5B0A3611",
+    "_created_at": "2026-10-03T08:27:05",
+    "_updated_at": "2026-10-03T08:27:05"
+  },
+  {
+    "FLD-8A0C37F6C68E": "Dummy Vendor 04",
+    "FLD-22F3F29DDD0D": "Canara Bank",
+    "FLD-7399EA591182": "Jobner Branch",
+    "FLD-4A173CB64EC4": "100000000004",
+    "FLD-1F09DD515ED4": "CNRB0000004",
+    "_record_id": "REC-0F01C90181BD",
+    "_created_at": "2026-10-03T08:27:05",
+    "_updated_at": "2026-10-03T08:27:05"
+  },
+  {
+    "FLD-8A0C37F6C68E": "Dummy Vendor 05",
+    "FLD-22F3F29DDD0D": "Union Bank of India",
+    "FLD-7399EA591182": "Chomu Branch",
+    "FLD-4A173CB64EC4": "100000000005",
+    "FLD-1F09DD515ED4": "UBIN0000005",
+    "_record_id": "REC-FD43EE460E1C",
+    "_created_at": "2026-10-03T08:27:05",
+    "_updated_at": "2026-10-03T08:27:05"
+  },
+  {
+    "FLD-8A0C37F6C68E": "ASHOK BOOK DEPO PHULERA",
+    "FLD-22F3F29DDD0D": "HDFC BANK F.L.",
+    "FLD-7399EA591182": "PHULERA",
+    "FLD-4A173CB64EC4": "50200091054888",
+    "FLD-1F09DD515ED4": "HDFC0007547",
+    "_record_id": "REC-90BE327F8790",
+    "_created_at": "2026-10-05T10:51:58",
+    "_updated_at": "2026-10-05T11:29:11"
+  },
+  {
+    "FLD-8A0C37F6C68E": "VIDHYALAY COLLECTION  PHULERA",
+    "FLD-22F3F29DDD0D": "STATE BANK OF INDIA",
+    "FLD-7399EA591182": "PHULERA",
+    "FLD-4A173CB64EC4": "40347446996",
+    "FLD-1F09DD515ED4": "SBIN0031749",
+    "_record_id": "REC-F7D69621E54C",
+    "_created_at": "2026-10-05T11:01:18",
+    "_updated_at": "2026-10-05T11:01:18"
+  }
+]
