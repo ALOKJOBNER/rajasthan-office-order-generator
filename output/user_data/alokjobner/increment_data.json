@@ -1,0 +1,41 @@
+{
+  "office_data": {
+    "office_name": "प्रधानाचार्य, रा.उ.मा.वि. रोजड़ी (जयपुर)",
+    "inc_year": "2026",
+    "inc_cycle": "जुलाई (01 July)",
+    "order_no": "संस्था/वेतनवृद्धि/2026/4536",
+    "sub_treasury": "सांभर लेक"
+  },
+  "employees": [
+    {
+      "emp_name": "ALOK KUMAR SINGH",
+      "pay_level": "L-12",
+      "next_basic": 67000,
+      "designation": "वरिष्ठ अध्यापक",
+      "cur_inc_date": "01/07/2026",
+      "current_basic": 65000,
+      "next_inc_date": "01/07/2027",
+      "service_status": "स्थायी"
+    },
+    {
+      "emp_name": "ALOKJOBNER",
+      "pay_level": "L-12",
+      "next_basic": 71100,
+      "designation": "वरिष्ठ अध्यापक",
+      "cur_inc_date": "01/07/2026",
+      "current_basic": 69000,
+      "next_inc_date": "01/07/2027",
+      "service_status": "स्थायी"
+    },
+    {
+      "emp_name": "SOHAN",
+      "designation": "वरिष्ठ अध्यापक",
+      "service_status": "स्थायी",
+      "pay_level": "PB-2 (₹9300–₹34800) / GP 4800",
+      "current_basic": 65000,
+      "cur_inc_date": "01/07/2026",
+      "next_basic": 67500,
+      "next_inc_date": "01/07/2027"
+    }
+  ]
+}

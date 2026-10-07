@@ -1,0 +1,737 @@
+[
+    {
+        "master_id": "MD-30059261A513",
+        "master_name": "Pay Commission Master [UNIVERSAL / LOCKED]",
+        "description": "Universal system master. User cannot create, rename, edit, delete, or manage its fields.",
+        "owner_type": "system",
+        "status": "active",
+        "fields": [
+            {
+                "field_id": "FLD-999F0EC23255",
+                "field_name": "record_type",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 1
+            },
+            {
+                "field_id": "FLD-7FE793FD158D",
+                "field_name": "pay_commission",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 2
+            },
+            {
+                "field_id": "FLD-07CB54672141",
+                "field_name": "pay_band",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 3
+            },
+            {
+                "field_id": "FLD-485E0F257EF7",
+                "field_name": "grade_pay",
+                "field_type": "number",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 4
+            },
+            {
+                "field_id": "FLD-1807E35B5EB5",
+                "field_name": "pay_level",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 5
+            },
+            {
+                "field_id": "FLD-3E60EA00BA8A",
+                "field_name": "pay_matrix_cells",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 6
+            },
+            {
+                "field_id": "FLD-813B8D871224",
+                "field_name": "effective_date",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 7
+            },
+            {
+                "field_id": "FLD-8E9AA4D43F83",
+                "field_name": "city_class",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 8
+            },
+            {
+                "field_id": "FLD-75EAD496958D",
+                "field_name": "da_rate",
+                "field_type": "decimal",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 9
+            },
+            {
+                "field_id": "FLD-72C082B043CE",
+                "field_name": "cash_da_rate",
+                "field_type": "decimal",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 10
+            },
+            {
+                "field_id": "FLD-04052E5504B4",
+                "field_name": "gpf_credit",
+                "field_type": "boolean",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 11
+            },
+            {
+                "field_id": "FLD-AFB286A83AC6",
+                "field_name": "hra_rate",
+                "field_type": "decimal",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 12
+            },
+            {
+                "field_id": "FLD-F751F83DD997",
+                "field_name": "increment_rule",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 13
+            },
+            {
+                "field_id": "FLD-803A48839AA6",
+                "field_name": "increment_date_rule",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 14
+            },
+            {
+                "field_id": "FLD-89213660106F",
+                "field_name": "source_status",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 15
+            }
+        ],
+        "created_at": "2026-10-02T15:39:33",
+        "updated_at": "2026-10-06T14:40:18",
+        "engine_version": "2.0.0",
+        "updated_from_seed": "2026-10-06.1",
+        "locked": true,
+        "data_seed_version": "2026-10-06.1",
+        "allow_seed_refresh": true
+    },
+    {
+        "master_id": "MD-6FE2E7DC0C61",
+        "master_name": "School Master Data",
+        "description": "User-wise School Master",
+        "owner_type": "user",
+        "status": "active",
+        "fields": [
+            {
+                "field_id": "FLD-121F4D734855",
+                "field_name": "School Name",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "विद्यालय का नाम",
+                "options": [],
+                "field_order": 1
+            },
+            {
+                "field_id": "FLD-E48176B263EF",
+                "field_name": "UDISE Code",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "UDISE / School Code",
+                "options": [],
+                "field_order": 2
+            },
+            {
+                "field_id": "FLD-9DE24AC8F0CA",
+                "field_name": "School Address",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "विद्यालय का पता",
+                "options": [],
+                "field_order": 3
+            },
+            {
+                "field_id": "FLD-4FCE2F89CBF9",
+                "field_name": "District",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "जिला",
+                "options": [],
+                "field_order": 4
+            }
+        ],
+        "created_at": "2026-10-03T08:17:49",
+        "updated_at": "2026-10-03T08:17:49",
+        "engine_version": "2.0.0"
+    },
+    {
+        "master_id": "MD-E96637FFF83D",
+        "master_name": "Employee Master Data",
+        "description": "User-wise Employee Master",
+        "owner_type": "user",
+        "status": "active",
+        "fields": [
+            {
+                "field_id": "FLD-0940AD81D385",
+                "field_name": "Employee Name",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "कर्मचारी का नाम",
+                "options": [],
+                "field_order": 1
+            },
+            {
+                "field_id": "FLD-4B3D7B6CE2E6",
+                "field_name": "Employee ID",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "Employee ID",
+                "options": [],
+                "field_order": 2
+            },
+            {
+                "field_id": "FLD-30CEE46E5932",
+                "field_name": "GPF / PRAN Number",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "GPF / PRAN Number",
+                "options": [],
+                "field_order": 3
+            },
+            {
+                "field_id": "FLD-574AA891D4ED",
+                "field_name": "PAN Number",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "PAN Number",
+                "options": [],
+                "field_order": 4
+            },
+            {
+                "field_id": "FLD-3B82455C56C4",
+                "field_name": "Date of Birth",
+                "field_type": "date",
+                "required": false,
+                "active": true,
+                "description": "जन्म दिनांक",
+                "options": [],
+                "field_order": 5
+            },
+            {
+                "field_id": "FLD-A0DBCD9C5F97",
+                "field_name": "Appointment Date",
+                "field_type": "date",
+                "required": false,
+                "active": true,
+                "description": "नियुक्ति दिनांक",
+                "options": [],
+                "field_order": 6
+            },
+            {
+                "field_id": "FLD-8D4C43C9DA3C",
+                "field_name": "Joining Date",
+                "field_type": "date",
+                "required": false,
+                "active": true,
+                "description": "कार्यग्रहण दिनांक",
+                "options": [],
+                "field_order": 7
+            },
+            {
+                "field_id": "FLD-5223B25EC16B",
+                "field_name": "Pay Level",
+                "field_type": "number",
+                "required": false,
+                "active": true,
+                "description": "7th Pay Commission Pay Level",
+                "options": [],
+                "field_order": 8
+            },
+            {
+                "field_id": "FLD-A0BCD1439033",
+                "field_name": "Basic Pay",
+                "field_type": "number",
+                "required": false,
+                "active": true,
+                "description": "मूल वेतन",
+                "options": [],
+                "field_order": 9
+            },
+            {
+                "field_id": "FLD-4835A0BB1B2C",
+                "field_name": "Pay Band",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "Pay Band - Optional",
+                "options": [],
+                "field_order": 10
+            },
+            {
+                "field_id": "FLD-0102DB557D08",
+                "field_name": "Grade Pay",
+                "field_type": "number",
+                "required": false,
+                "active": true,
+                "description": "Grade Pay - Optional",
+                "options": [],
+                "field_order": 11
+            },
+            {
+                "field_id": "FLD-32F1B42E3C25",
+                "field_name": "Designation",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "पदनाम",
+                "options": [],
+                "field_order": 12
+            },
+            {
+                "field_id": "FLD-56B326EC6E02",
+                "field_name": "Department",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "विभाग",
+                "options": [],
+                "field_order": 13
+            },
+            {
+                "field_id": "FLD-192C91F334E3",
+                "field_name": "Mobile Number",
+                "field_type": "phone",
+                "required": false,
+                "active": true,
+                "description": "मोबाइल नंबर",
+                "options": [],
+                "field_order": 14
+            },
+            {
+                "field_id": "FLD-2A91657CC990",
+                "field_name": "Bank Name",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "कर्मचारी के बैंक का नाम",
+                "options": [],
+                "field_order": 15
+            },
+            {
+                "field_id": "FLD-444C4630A3C5",
+                "field_name": "Branch",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "बैंक शाखा",
+                "options": [],
+                "field_order": 16
+            },
+            {
+                "field_id": "FLD-E371B508DE9A",
+                "field_name": "Account Number",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "बैंक खाता संख्या",
+                "options": [],
+                "field_order": 17
+            },
+            {
+                "field_id": "FLD-2EEDC89E1BFC",
+                "field_name": "IFSC",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "IFSC Code",
+                "options": [],
+                "field_order": 18
+            },
+            {
+                "field_id": "FLD-909241B5B76C",
+                "field_name": "Pay Commission",
+                "field_type": "dropdown",
+                "required": false,
+                "active": true,
+                "description": "कर्मचारी का लागू वेतन आयोग। Pay Level होने पर सामान्यतः 7th CPC तथा Pay Band/Grade Pay होने पर 6th CPC।",
+                "options": [
+                    "5th Pay Commission",
+                    "6th Pay Commission",
+                    "7th Pay Commission"
+                ],
+                "field_order": 19
+            }
+        ],
+        "created_at": "2026-10-03T08:17:49",
+        "updated_at": "2026-10-06T14:00:10",
+        "engine_version": "2.0.0"
+    },
+    {
+        "master_id": "MD-73F5548573D2",
+        "master_name": "Vendor Master Data",
+        "description": "User-wise Vendor Master",
+        "owner_type": "user",
+        "status": "active",
+        "fields": [
+            {
+                "field_id": "FLD-8A0C37F6C68E",
+                "field_name": "Vendor Name",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "Vendor / Firm Name",
+                "options": [],
+                "field_order": 1
+            },
+            {
+                "field_id": "FLD-22F3F29DDD0D",
+                "field_name": "Bank Name",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "Bank Name",
+                "options": [],
+                "field_order": 2
+            },
+            {
+                "field_id": "FLD-7399EA591182",
+                "field_name": "Branch",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "Bank Branch",
+                "options": [],
+                "field_order": 3
+            },
+            {
+                "field_id": "FLD-4A173CB64EC4",
+                "field_name": "Account Number",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "Bank Account Number",
+                "options": [],
+                "field_order": 4
+            },
+            {
+                "field_id": "FLD-1F09DD515ED4",
+                "field_name": "IFSC",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "IFSC Code",
+                "options": [],
+                "field_order": 5
+            }
+        ],
+        "created_at": "2026-10-03T08:17:49",
+        "updated_at": "2026-10-03T08:17:49",
+        "engine_version": "2.0.0"
+    },
+    {
+        "master_id": "MD-4F53CD9F3AB3",
+        "master_name": "Beneficiary Master Data",
+        "description": "User-wise Beneficiary Master",
+        "owner_type": "user",
+        "status": "active",
+        "fields": [
+            {
+                "field_id": "FLD-9D9484E13677",
+                "field_name": "Beneficiary Name",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "लाभार्थी का नाम",
+                "options": [],
+                "field_order": 1
+            },
+            {
+                "field_id": "FLD-E437C0134A76",
+                "field_name": "Bank Name",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "Bank Name",
+                "options": [],
+                "field_order": 2
+            },
+            {
+                "field_id": "FLD-A43B25CA0476",
+                "field_name": "Branch",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "Bank Branch",
+                "options": [],
+                "field_order": 3
+            },
+            {
+                "field_id": "FLD-B8428ACFCB27",
+                "field_name": "Account Number",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "Bank Account Number",
+                "options": [],
+                "field_order": 4
+            },
+            {
+                "field_id": "FLD-227D5887B95B",
+                "field_name": "IFSC",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "IFSC Code",
+                "options": [],
+                "field_order": 5
+            }
+        ],
+        "created_at": "2026-10-03T08:17:49",
+        "updated_at": "2026-10-03T08:17:49",
+        "engine_version": "2.0.0"
+    },
+    {
+        "master_id": "MD-69C3683FA729",
+        "master_name": "Component Master Data",
+        "description": "User-wise Component Master",
+        "owner_type": "user",
+        "status": "active",
+        "fields": [
+            {
+                "field_id": "FLD-E950A7F66810",
+                "field_name": "Component Name",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "Component Name",
+                "options": [],
+                "field_order": 1
+            },
+            {
+                "field_id": "FLD-D618858C159A",
+                "field_name": "Component Code",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "Component Code",
+                "options": [],
+                "field_order": 2
+            },
+            {
+                "field_id": "FLD-A026913983D7",
+                "field_name": "Description",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "Component Description",
+                "options": [],
+                "field_order": 3
+            },
+            {
+                "field_id": "FLD-DE4C879873A8",
+                "field_name": "Component Level",
+                "field_type": "dropdown",
+                "required": false,
+                "active": true,
+                "description": "Component को Elementary या Secondary में रखें।",
+                "options": [
+                    "Elementary",
+                    "Secondary"
+                ],
+                "field_order": 4
+            }
+        ],
+        "created_at": "2026-10-03T08:17:49",
+        "updated_at": "2026-10-03T09:53:16",
+        "engine_version": "2.0.0"
+    },
+    {
+        "master_id": "MD-97611F3F90B7",
+        "master_name": "Student Master Data",
+        "description": "विद्यार्थी Master Data — भविष्य के Sanchalan/अन्य मॉड्यूल उपयोग के लिए",
+        "owner_type": "user",
+        "status": "active",
+        "fields": [
+            {
+                "field_id": "FLD-DD0EEA531013",
+                "field_name": "Student Name",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "विद्यार्थी का नाम",
+                "options": [],
+                "field_order": 1
+            },
+            {
+                "field_id": "FLD-19232A5E0ED3",
+                "field_name": "SR Number",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "SR/Scholar Register Number",
+                "options": [],
+                "field_order": 2
+            },
+            {
+                "field_id": "FLD-32AD6329102D",
+                "field_name": "Class",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "कक्षा",
+                "options": [],
+                "field_order": 3
+            },
+            {
+                "field_id": "FLD-2E04273E0666",
+                "field_name": "Father's Name",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "पिता का नाम",
+                "options": [],
+                "field_order": 4
+            },
+            {
+                "field_id": "FLD-5B997B306C4A",
+                "field_name": "Mother's Name",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "माता का नाम",
+                "options": [],
+                "field_order": 5
+            },
+            {
+                "field_id": "FLD-E696010DBE64",
+                "field_name": "Mobile Number",
+                "field_type": "phone",
+                "required": false,
+                "active": true,
+                "description": "मोबाइल नंबर",
+                "options": [],
+                "field_order": 6
+            },
+            {
+                "field_id": "FLD-CD0A0F30B189",
+                "field_name": "Bank Name",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "बैंक का नाम",
+                "options": [],
+                "field_order": 7
+            },
+            {
+                "field_id": "FLD-9F88D2D9C25F",
+                "field_name": "Branch",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "बैंक शाखा",
+                "options": [],
+                "field_order": 8
+            },
+            {
+                "field_id": "FLD-D2F5AC15424E",
+                "field_name": "Account Number",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "बैंक खाता संख्या",
+                "options": [],
+                "field_order": 9
+            },
+            {
+                "field_id": "FLD-24A61C52595A",
+                "field_name": "IFSC",
+                "field_type": "text",
+                "required": true,
+                "active": true,
+                "description": "IFSC Code",
+                "options": [],
+                "field_order": 10
+            },
+            {
+                "field_id": "FLD-7D95952AB144",
+                "field_name": "Aadhaar",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "आधार संख्या",
+                "options": [],
+                "field_order": 11
+            },
+            {
+                "field_id": "FLD-DB3141932080",
+                "field_name": "Jan Aadhaar",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "जन आधार संख्या",
+                "options": [],
+                "field_order": 12
+            }
+        ],
+        "created_at": "2026-10-03T09:53:16",
+        "updated_at": "2026-10-03T09:53:16",
+        "engine_version": "2.0.0"
+    }
+]
