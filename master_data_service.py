@@ -6,6 +6,8 @@ Master Data definitions or records.
 """
 from __future__ import annotations
 from copy import deepcopy
+import json
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from master_data import (
@@ -23,8 +25,9 @@ class MasterDataService:
     def __init__(self, username: str, *, ensure_system_master: bool = False):
         self.username = normalize_username(username)
         self.store = MasterDefinitionStore(self.username)
-        if ensure_system_master and hasattr(self.store, "ensure_pay_commission_master"):
-            self.store.ensure_pay_commission_master()
+        # Every new user receives only blank user-master definitions.
+        # Records are NEVER copied from another user.
+        self.ensure_user_master_templates()
         # Employee Master explicitly stores Pay Commission. Existing records are
         # migrated from their existing pay structure: Pay Level => 7th CPC;
         # Pay Band/Grade Pay => 6th CPC. The field is optional so genuinely
@@ -49,19 +52,102 @@ class MasterDataService:
         master = self.store.get_master_by_name(master_name)
         return deepcopy(master) if master else None
 
+    def ensure_user_master_templates(self) -> List[str]:
+        """Create missing standard User Master definitions with blank records.
+
+        Definitions/fields come from the checked-in schema template only.
+        No records from Admin or any other user are copied. Existing user
+        masters and their records are never overwritten.
+        Pay Commission Master is deliberately excluded because it is universal.
+        """
+        template_path = Path(__file__).resolve().parent / "user_master_templates.json"
+        if not template_path.exists():
+            return []
+        try:
+            payload = json.loads(template_path.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+        changed = []
+        for template in payload.get("masters", []):
+            name = str(template.get("master_name") or "").strip()
+            if not name or self._norm(name) == self._norm(PAY_COMMISSION_MASTER_NAME):
+                continue
+            if self.store.get_master_by_name(name):
+                continue
+            master = self.store.create_master(name, str(template.get("description") or ""))
+            for field in template.get("fields", []):
+                self.store.add_field(
+                    master["master_id"],
+                    str(field.get("field_name") or "").strip(),
+                    str(field.get("field_type") or "text"),
+                    bool(field.get("required", False)),
+                    bool(field.get("active", True)),
+                    list(field.get("options") or []),
+                    str(field.get("description") or ""),
+                )
+            changed.append(name)
+        return changed
+
+    def _universal_pay_commission_path(self) -> Path:
+        return Path(__file__).resolve().parent / "output" / "universal_pay_commission_master.json"
+
+    def sync_universal_pay_commission(self, master: Optional[Dict[str, Any]] = None, records: Optional[List[Dict[str, Any]]] = None) -> None:
+        """Persist the Administrator's approved Pay Commission changes to the
+        single universal read-only source used by all normal users."""
+        if str(self.username).strip().lower() == "":
+            raise ValueError("Username आवश्यक है।")
+        master = master or self.store.get_master_by_name(PAY_COMMISSION_MASTER_NAME)
+        if not master:
+            raise ValueError("Pay Commission Master उपलब्ध नहीं है।")
+        payload = {
+            "version": "1.0.0",
+            "master_name": PAY_COMMISSION_MASTER_NAME,
+            "description": PAY_COMMISSION_MASTER_DESCRIPTION,
+            "locked": True,
+            "fields": deepcopy(master.get("fields", [])),
+            "records": deepcopy(records if records is not None else self.store.load_records(master["master_id"])),
+        }
+        path = self._universal_pay_commission_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _load_universal_pay_commission(self) -> Optional[Dict[str, Any]]:
+        path = self._universal_pay_commission_path()
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict) or not data.get("records"):
+                return None
+            return data
+        except Exception:
+            return None
+
     def get_pay_commission_master(self) -> Optional[Dict[str, Any]]:
+        # User accounts never receive a visible/local Pay Commission Master.
+        # They read the single universal, locked source.
+        universal = self._load_universal_pay_commission()
+        if universal:
+            return {
+                "master_id": "SYSTEM-PAY-COMMISSION",
+                "master_name": PAY_COMMISSION_MASTER_NAME,
+                "owner_type": SYSTEM_MASTER,
+                "status": "active",
+                "fields": deepcopy(universal.get("fields", [])),
+                "_universal_records": deepcopy(universal.get("records", [])),
+            }
+        # Backward-compatible fallback for an installation that still has
+        # the protected master in the current user's store.
         master = self.get_master_by_name(PAY_COMMISSION_MASTER_NAME)
         if master:
             return master
-        # Read-only virtual system definition for installations where the
-        # locked Pay Commission master is exposed by the service but is not
-        # persisted inside each user's definition file.
         return {
             "master_id": "SYSTEM-PAY-COMMISSION",
             "master_name": PAY_COMMISSION_MASTER_NAME,
             "owner_type": SYSTEM_MASTER,
             "status": "active",
             "fields": [],
+            "_universal_records": [],
         }
 
 
@@ -314,6 +400,12 @@ class MasterDataService:
         return bool(meta and meta.get("locked") is True)
 
     def get_records(self, master_id: str, active_only: bool = False) -> List[Dict[str, Any]]:
+        if str(master_id) == "SYSTEM-PAY-COMMISSION":
+            master = self.get_pay_commission_master()
+            records = deepcopy((master or {}).get("_universal_records", []))
+            if active_only:
+                records = [r for r in records if r.get("_active", True) is not False]
+            return records
         master = self.store.get_master(master_id)
         if not master:
             raise ValueError("Master नहीं मिला।")
