@@ -946,6 +946,10 @@ def save_json_file(filename, data):
 # REGISTRATION
 # ============================================================
 def registration_screen():
+    # Registration screen must use the same authentication visual theme as
+    # Login/Recovery. Without this style block, Streamlit's dark theme makes
+    # labels/buttons inherit dark/white-on-white colors and become unreadable.
+    _auth_visual_style()
     st.markdown("""
     <div style="
         text-align:center;
@@ -970,6 +974,38 @@ def registration_screen():
         confirm_password = st.text_input(
             "🔒 Confirm Password", type="password", key="reg_confirm_password"
         )
+
+    st.markdown("""
+    <style>
+    /* Registration-only readability fixes. */
+    div[data-testid="stAlert"] {
+        background:#123e68 !important;
+        border:1px solid #2e86c1 !important;
+        color:#ecf0f1 !important;
+    }
+    div[data-testid="stAlert"] * { color:#ecf0f1 !important; }
+    div[class*="st-key-register_user_button"] button {
+        background:#27ae60 !important;
+        color:#ffffff !important;
+        border:2px solid #2ecc71 !important;
+        box-shadow:0 4px 0 #1e8449 !important;
+        font-weight:900 !important;
+        min-height:46px !important;
+        border-radius:10px !important;
+    }
+    div[class*="st-key-register_user_button"] button * { color:#ffffff !important; font-weight:900 !important; }
+    div[class*="st-key-persistent_back_login"] button {
+        background:#c0392b !important;
+        color:#ffffff !important;
+        border:2px solid #e74c3c !important;
+        box-shadow:0 4px 0 #922b21 !important;
+        font-weight:900 !important;
+        min-height:44px !important;
+        border-radius:10px !important;
+    }
+    div[class*="st-key-persistent_back_login"] button * { color:#ffffff !important; font-weight:900 !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
     st.info("यह सामान्य User Account है। Administrator Account केवल अलग Admin Login से संचालित होगा।")
 
