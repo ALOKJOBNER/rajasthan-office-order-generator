@@ -11,6 +11,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 PAY_TOKEN = "pay commission"
@@ -107,83 +108,117 @@ def validate_record(master: dict, values: dict) -> None:
 
 
 def make_template(master: dict) -> bytes:
+    """Create a clean, Excel-compatible Employee/Master template.
+
+    This intentionally uses a native openpyxl Workbook rather than writing
+    through pandas.ExcelWriter and then modifying the workbook.  That avoids
+    the custom XF/header styles that were causing Excel's recovery dialog on
+    some desktop Excel builds.  The required-field markers and dropdowns are
+    preserved.
+    """
+    from openpyxl import Workbook
+
     fields = active_fields(master)
     employee = norm(master.get("master_name")) == norm("Employee Master Data")
+
     def header_for(f):
         name = f["field_name"]
         if f.get("required"):
             return name + " *"
         if employee and norm(name) == norm("Pay Level"):
             return name + " * (7th CPC)"
-        if employee and norm(name) in {norm("Pay Band"), norm("Grade Pay")} :
+        if employee and norm(name) in {norm("Pay Band"), norm("Grade Pay")}:
             return name + " * (6th CPC)"
         return name
-    columns = [header_for(f) for f in fields]
-    data = pd.DataFrame([{c: "" for c in columns}])
-    definitions = pd.DataFrame(
-        [
-            {
-                "Field Name": f["field_name"],
-                "Required": "अनिवार्य *" if f.get("required") else "वैकल्पिक",
-                "Field Type": f.get("field_type", "text"),
-                "Mandatory Rule": (
-                    "6th CPC में अनिवार्य" if norm(master.get("master_name")) == norm("Employee Master Data") and norm(f.get("field_name")) in {norm("Pay Band"), norm("Grade Pay")}
-                    else "7th CPC में अनिवार्य" if norm(master.get("master_name")) == norm("Employee Master Data") and norm(f.get("field_name")) == norm("Pay Level")
-                    else "अनिवार्य" if f.get("required") else "वैकल्पिक"
-                ),
-                "Description": f.get("description", ""),
-                "Options": ", ".join(map(str, f.get("options", []))),
-            }
-            for f in fields
-        ]
-    )
-    out = io.BytesIO()
-    with pd.ExcelWriter(out, engine="openpyxl") as writer:
-        data.to_excel(writer, index=False, sheet_name="Data")
-        definitions.to_excel(writer, index=False, sheet_name="Field_Definitions")
-        instructions = pd.DataFrame({"Instructions": [
-            "* लगा Field अनिवार्य है।",
-            "Employee Master में Employee Name, Employee ID, GPF/PRAN, Bank Name, Branch, Account Number, IFSC, Pay Commission और Basic Pay अनिवार्य हैं।",
-            "7th Pay Commission में Pay Level अनिवार्य है।",
-            "6th Pay Commission में Pay Band और Grade Pay अनिवार्य हैं।",
-            "Pay Commission और Pay Level को Excel में लिखें नहीं; dropdown से निर्धारित विकल्प चुनें।",
-            "अनिवार्य field खाली होने पर Excel Import अस्वीकार किया जाएगा।",
-        ]})
-        instructions.to_excel(writer, index=False, sheet_name="Instructions")
-    out.seek(0)
-    wb = load_workbook(out)
-    ws = wb["Data"]
-    ws.freeze_panes = "A2"
-    ws.auto_filter.ref = ws.dimensions
-    ws2 = wb["Field_Definitions"]
-    ws3 = wb["Instructions"]
 
-    # Locate columns by normalized display name, allowing the * marker.
-    colmap = {norm(str(ws.cell(1,c).value).replace(" * (7th CPC)", "").replace(" * (6th CPC)", "").rstrip(" *")): c for c in range(1, ws.max_column+1)}
-    employee = norm(master.get("master_name")) == norm("Employee Master Data")
+    columns = [header_for(f) for f in fields]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Data"
+    ws.append(columns)
+    # Keep one blank entry row so the user immediately sees where to start.
+    ws.append([""] * len(columns))
+
+    # Field definitions sheet
+    ws2 = wb.create_sheet("Field_Definitions")
+    ws2.append(["Field Name", "Required", "Field Type", "Mandatory Rule", "Description", "Options"])
+    for f in fields:
+        mandatory_rule = (
+            "6th CPC में अनिवार्य"
+            if employee and norm(f.get("field_name")) in {norm("Pay Band"), norm("Grade Pay")}
+            else "7th CPC में अनिवार्य"
+            if employee and norm(f.get("field_name")) == norm("Pay Level")
+            else "अनिवार्य"
+            if f.get("required")
+            else "वैकल्पिक"
+        )
+        ws2.append([
+            f.get("field_name", ""),
+            "अनिवार्य *" if f.get("required") else "वैकल्पिक",
+            f.get("field_type", "text"),
+            mandatory_rule,
+            f.get("description", ""),
+            ", ".join(map(str, f.get("options", []))),
+        ])
+
+    # Instructions sheet
+    ws3 = wb.create_sheet("Instructions")
+    instructions = [
+        "* लगा Field अनिवार्य है।",
+        "Employee Master में Employee Name, Employee ID, GPF/PRAN, Bank Name, Branch, Account Number, IFSC, Pay Commission और Basic Pay अनिवार्य हैं।",
+        "7th Pay Commission में Pay Level अनिवार्य है।",
+        "6th Pay Commission में Pay Band और Grade Pay अनिवार्य हैं।",
+        "Pay Commission और Pay Level को Excel में लिखें नहीं; dropdown से निर्धारित विकल्प चुनें।",
+        "अनिवार्य field खाली होने पर Excel Import अस्वीकार किया जाएगा।",
+    ]
+    ws3.append(["Instructions"])
+    for item in instructions:
+        ws3.append([item])
+
+    # Basic usability without custom cell styles/comments.
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:{get_column_letter(max(1, len(columns)))}2"
+
     if employee:
+        colmap = {
+            norm(str(ws.cell(1, c).value).replace(" * (7th CPC)", "").replace(" * (6th CPC)", "").rstrip(" *")): c
+            for c in range(1, ws.max_column + 1)
+        }
         pc_col = colmap.get(norm("Pay Commission"))
         level_col = colmap.get(norm("Pay Level"))
+
         if pc_col:
-            dv = DataValidation(type="list", formula1='"5th Pay Commission,6th Pay Commission,7th Pay Commission"', allow_blank=False)
+            dv = DataValidation(
+                type="list",
+                formula1='"5th Pay Commission,6th Pay Commission,7th Pay Commission"',
+                allow_blank=False,
+            )
             dv.error = "केवल 5th Pay Commission, 6th Pay Commission या 7th Pay Commission चुनें।"
             dv.errorTitle = "Invalid Pay Commission"
             dv.prompt = "सूची से Pay Commission चुनें।"
             dv.promptTitle = "Pay Commission"
-            ws.add_data_validation(dv); dv.add(f"{ws.cell(2,pc_col).coordinate}:{ws.cell(1000,pc_col).coordinate}")
-        if level_col:
-            dv2 = DataValidation(type="list", formula1='"L-1,L-2,L-3,L-4,L-5,L-6,L-7,L-8,L-9,L-10,L-11,L-12,L-13,L-14,L-15,L-16,L-17,L-18,L-19,L-20,L-21,L-22,L-23,L-24,Fixed Pay"', allow_blank=True)
-            dv2.error = "Pay Level सूची से चुनें।"; dv2.errorTitle = "Invalid Pay Level"
-            dv2.prompt = "7th CPC में Pay Level सूची से चुनें।"; dv2.promptTitle = "Pay Level"
-            ws.add_data_validation(dv2); dv2.add(f"{ws.cell(2,level_col).coordinate}:{ws.cell(1000,level_col).coordinate}")
+            ws.add_data_validation(dv)
+            pc_col_letter = get_column_letter(pc_col)
+            dv.add(f"{pc_col_letter}2:{pc_col_letter}1000")
 
+        if level_col:
+            level_options = ",".join([f"L-{i}" for i in range(1, 25)] + ["Fixed Pay"])
+            dv2 = DataValidation(type="list", formula1=f'"{level_options}"', allow_blank=True)
+            dv2.error = "Pay Level सूची से चुनें।"
+            dv2.errorTitle = "Invalid Pay Level"
+            dv2.prompt = "7th CPC में Pay Level सूची से चुनें।"
+            dv2.promptTitle = "Pay Level"
+            ws.add_data_validation(dv2)
+            level_col_letter = get_column_letter(level_col)
+            dv2.add(f"{level_col_letter}2:{level_col_letter}1000")
+
+    # Widths are stored as column metadata, not cell formatting.
     for sheet in (ws, ws2, ws3):
-        for col in range(1, sheet.max_column+1):
-            sheet.column_dimensions[chr(64+col) if col <= 26 else "A"].width = 24
-    # Mark mandatory headers visibly.
-    for c in range(1, ws.max_column+1):
-        if "*" in str(ws.cell(1,c).value or ""):
-            ws.cell(1,c).comment = __import__('openpyxl').comments.Comment("यह Field अनिवार्य है। खाली न छोड़ें।", "Office Order Software")
+        for col in range(1, sheet.max_column + 1):
+            sheet.column_dimensions[get_column_letter(col)].width = 24
+
+    out = io.BytesIO()
     wb.save(out)
     return out.getvalue()
 
