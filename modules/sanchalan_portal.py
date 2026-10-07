@@ -725,9 +725,20 @@ table {{ border-collapse:collapse; width:100%; table-layout:fixed; }}
                 return found
         return None
 
+    # Streamlit Cloud/Linux generally does not have Chrome/Edge installed.
+    # WeasyPrint is already included in requirements.txt and can render this
+    # same HTML/CSS directly to PDF, including Devanagari text. Prefer it
+    # when available; retain Chrome/Edge as the Windows/local fallback.
     browser = find_browser()
     if not browser:
-        raise RuntimeError("PDF बनाने के लिए Google Chrome/Microsoft Edge नहीं मिला।")
+        try:
+            from weasyprint import HTML as _WeasyHTML
+            return _WeasyHTML(string=html, base_url=str(_Path.cwd())).write_pdf()
+        except Exception as weasy_exc:
+            raise RuntimeError(
+                "Streamlit पर PDF बनाने के लिए WeasyPrint उपलब्ध/कार्यशील नहीं है। "
+                f"WeasyPrint error: {weasy_exc}"
+            ) from weasy_exc
 
     temp_dir = _Path(_tempfile.mkdtemp(prefix="sanchalan_pdf_"))
     html_path = temp_dir / "sanchalan_order.html"
