@@ -4,9 +4,20 @@ from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog, filedialog
-import zipfile
+try:
+    import tkinter as tk
+    from tkinter import ttk, messagebox, simpledialog, filedialog
+    TK_AVAILABLE = True
+except Exception:
+    # Streamlit Cloud/Linux may not provide Tk.
+    # The Master Data engine remains fully available; only the optional
+    # standalone Tkinter GUI is disabled.
+    tk = None
+    ttk = None
+    messagebox = None
+    simpledialog = None
+    filedialog = None
+    TK_AVAILABLE = False
 import xml.etree.ElementTree as ET
 
 MASTER_DATA_ENGINE_VERSION = "2.0.0"
@@ -696,428 +707,432 @@ class MasterDefinitionStore:
     def list_masters(self):
         return sorted(deepcopy(self.definitions),key=lambda x:str(x.get("master_name","")).casefold())
 
-class FieldDialog(tk.Toplevel):
-    def __init__(self,parent,field=None):
-        super().__init__(parent); self.result=None; field=field or {}
-        self.title("Field"); self.geometry("520x360"); self.resizable(False,False)
-        self.name=tk.StringVar(value=field.get("field_name",""))
-        self.typ=tk.StringVar(value=field.get("field_type","text"))
-        self.req=tk.BooleanVar(value=field.get("required",False))
-        self.act=tk.BooleanVar(value=field.get("active",True))
-        self.desc=tk.StringVar(value=field.get("description",""))
-        self.opts=tk.StringVar(value=", ".join(field.get("options",[])))
-        f=ttk.Frame(self,padding=18); f.pack(fill="both",expand=True)
-        rows=[("Field Name:",self.name),("Description:",self.desc)]
-        for i,(lab,var) in enumerate(rows):
-            ttk.Label(f,text=lab).grid(row=i,column=0,sticky="w",pady=7); ttk.Entry(f,textvariable=var,width=42).grid(row=i,column=1,pady=7)
-        ttk.Label(f,text="Field Type:").grid(row=2,column=0,sticky="w",pady=7)
-        self.combo=ttk.Combobox(f,textvariable=self.typ,values=list(FIELD_TYPES),state="readonly",width=39); self.combo.grid(row=2,column=1); self.combo.bind("<<ComboboxSelected>>",self.toggle)
-        ttk.Checkbutton(f,text="Required",variable=self.req).grid(row=3,column=1,sticky="w")
-        ttk.Checkbutton(f,text="Active",variable=self.act).grid(row=4,column=1,sticky="w")
-        ttk.Label(f,text="Dropdown Options:").grid(row=5,column=0,sticky="w",pady=7)
-        self.optentry=ttk.Entry(f,textvariable=self.opts,width=42); self.optentry.grid(row=5,column=1,pady=7)
-        ttk.Label(f,text="Dropdown में comma से अलग करें।").grid(row=6,column=1,sticky="w")
-        b=ttk.Frame(f); b.grid(row=7,column=0,columnspan=2,pady=15)
-        ttk.Button(b,text="Save",command=self.save).pack(side="left",padx=5); ttk.Button(b,text="Cancel",command=self.destroy).pack(side="left",padx=5)
-        self.toggle(); self.transient(parent); self.grab_set()
-    def toggle(self,event=None):
-        self.optentry.configure(state="normal" if self.typ.get()=="dropdown" else "disabled")
-    def save(self):
-        if not self.name.get().strip(): messagebox.showwarning("Validation","Field Name आवश्यक है।",parent=self); return
-        opts=[x.strip() for x in self.opts.get().split(",") if x.strip()] if self.typ.get()=="dropdown" else []
-        if self.typ.get()=="dropdown" and not opts: messagebox.showwarning("Validation","Dropdown options आवश्यक हैं।",parent=self); return
-        self.result={"field_name":self.name.get().strip(),"field_type":self.typ.get(),"required":self.req.get(),"active":self.act.get(),"options":opts,"description":self.desc.get().strip()}
-        self.destroy()
-
-
-class RecordDialog(tk.Toplevel):
-    def __init__(self, parent, master_def, record=None):
-        super().__init__(parent)
-        self.result = None
-        self.master_def = master_def
-        self.record = record or {}
-        self.title(f"Record - {master_def.get('master_name', '')}")
-        self.geometry("620x560")
-        self.resizable(False, True)
-        outer = ttk.Frame(self, padding=14)
-        outer.pack(fill="both", expand=True)
-
-        canvas = tk.Canvas(outer, highlightthickness=0)
-        sb = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-        form = ttk.Frame(canvas)
-        form.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0,0), window=form, anchor="nw")
-        canvas.configure(yscrollcommand=sb.set)
-        canvas.pack(side="left", fill="both", expand=True)
-        sb.pack(side="right", fill="y")
-
-        self.vars = {}
-        fields = [f for f in sorted(master_def.get("fields", []), key=lambda x:x.get("field_order",0))
-                  if f.get("active", True)]
-        for r, f in enumerate(fields):
-            fid = f["field_id"]
-            ttk.Label(form, text=f.get("field_name","") + (" *" if f.get("required") else "")).grid(
-                row=r, column=0, sticky="w", padx=(0,10), pady=7)
-            var = tk.StringVar(value="" if self.record.get(fid) is None else str(self.record.get(fid)))
-            self.vars[fid] = (var, f)
-            typ = f.get("field_type","text")
-            if typ == "dropdown":
-                w = ttk.Combobox(form, textvariable=var, values=f.get("options",[]), state="readonly", width=38)
-            elif typ == "boolean":
-                w = ttk.Combobox(form, textvariable=var, values=["Yes","No"], state="readonly", width=38)
-            else:
-                w = ttk.Entry(form, textvariable=var, width=42)
-            w.grid(row=r, column=1, sticky="ew", pady=7)
-
-        b = ttk.Frame(self); b.pack(fill="x", padx=14, pady=10)
-        ttk.Button(b, text="Save", command=self.save).pack(side="left", padx=4)
-        ttk.Button(b, text="Cancel", command=self.destroy).pack(side="left", padx=4)
-        self.transient(parent); self.grab_set()
-
-    def save(self):
-        values = {}
-        for fid, (var, f) in self.vars.items():
-            value = var.get().strip()
-            if f.get("required") and not value:
-                messagebox.showwarning("Validation", f"Required Field '{f.get('field_name','')}' खाली है।", parent=self)
-                return
-            values[fid] = normalize_import_value(value, f)
-        self.result = values
-        self.destroy()
-
-
-class RecordsWindow(tk.Toplevel):
-    def __init__(self, parent, store, master_id):
-        super().__init__(parent)
-        self.store = store
-        self.master_id = master_id
-        self.master_def = store.get_master(master_id)
-        self.title(f"Records - {self.master_def.get('master_name','')}")
-        self.geometry("1200x650")
-        self.minsize(900,500)
-
-        outer = ttk.Frame(self, padding=10); outer.pack(fill="both", expand=True)
-        top = ttk.Frame(outer); top.pack(fill="x", pady=(0,8))
-        self.count_var = tk.StringVar()
-        ttk.Label(top, textvariable=self.count_var, font=("Segoe UI",11,"bold")).pack(side="left")
-        ttk.Button(top, text="Duplicate Check", command=self.check_duplicates).pack(side="right", padx=4)
-        ttk.Button(top, text="Refresh", command=self.refresh).pack(side="right", padx=4)
-
-        table = ttk.Frame(outer); table.pack(fill="both", expand=True)
-        self.fields = [f for f in sorted(self.master_def.get("fields",[]), key=lambda x:x.get("field_order",0))
-                       if f.get("active",True)]
-        cols = [f["field_id"] for f in self.fields]
-        self.tree = ttk.Treeview(table, columns=cols, show="headings", selectmode="browse")
-        for f in self.fields:
-            fid=f["field_id"]; self.tree.heading(fid,text=f.get("field_name",""))
-            self.tree.column(fid,width=max(130,min(260,len(f.get("field_name",""))*10+50)))
-        self.tree.pack(side="left",fill="both",expand=True)
-        ysb=ttk.Scrollbar(table,orient="vertical",command=self.tree.yview); ysb.pack(side="right",fill="y")
-        xsb=ttk.Scrollbar(outer,orient="horizontal",command=self.tree.xview); xsb.pack(fill="x")
-        self.tree.configure(yscrollcommand=ysb.set,xscrollcommand=xsb.set)
-
-        b=ttk.Frame(outer); b.pack(fill="x",pady=(8,0))
-        locked=self.store.is_system_master(master_id)
-        self.add_btn=ttk.Button(b,text="+ Add Record",command=self.add_record); self.add_btn.pack(side="left",padx=3)
-        self.edit_btn=ttk.Button(b,text="Edit Record",command=self.edit_record); self.edit_btn.pack(side="left",padx=3)
-        self.delete_btn=ttk.Button(b,text="Delete Record",command=self.delete_record); self.delete_btn.pack(side="left",padx=3)
-        if locked:
-            for w in (self.add_btn,self.edit_btn,self.delete_btn): w.configure(state="disabled")
-        self.refresh()
-
-    def refresh(self):
-        for i in self.tree.get_children(): self.tree.delete(i)
-        records=self.store.load_records(self.master_id)
-        for rec in records:
-            vals=[]
+if TK_AVAILABLE:
+    class FieldDialog(tk.Toplevel):
+        def __init__(self,parent,field=None):
+            super().__init__(parent); self.result=None; field=field or {}
+            self.title("Field"); self.geometry("520x360"); self.resizable(False,False)
+            self.name=tk.StringVar(value=field.get("field_name",""))
+            self.typ=tk.StringVar(value=field.get("field_type","text"))
+            self.req=tk.BooleanVar(value=field.get("required",False))
+            self.act=tk.BooleanVar(value=field.get("active",True))
+            self.desc=tk.StringVar(value=field.get("description",""))
+            self.opts=tk.StringVar(value=", ".join(field.get("options",[])))
+            f=ttk.Frame(self,padding=18); f.pack(fill="both",expand=True)
+            rows=[("Field Name:",self.name),("Description:",self.desc)]
+            for i,(lab,var) in enumerate(rows):
+                ttk.Label(f,text=lab).grid(row=i,column=0,sticky="w",pady=7); ttk.Entry(f,textvariable=var,width=42).grid(row=i,column=1,pady=7)
+            ttk.Label(f,text="Field Type:").grid(row=2,column=0,sticky="w",pady=7)
+            self.combo=ttk.Combobox(f,textvariable=self.typ,values=list(FIELD_TYPES),state="readonly",width=39); self.combo.grid(row=2,column=1); self.combo.bind("<<ComboboxSelected>>",self.toggle)
+            ttk.Checkbutton(f,text="Required",variable=self.req).grid(row=3,column=1,sticky="w")
+            ttk.Checkbutton(f,text="Active",variable=self.act).grid(row=4,column=1,sticky="w")
+            ttk.Label(f,text="Dropdown Options:").grid(row=5,column=0,sticky="w",pady=7)
+            self.optentry=ttk.Entry(f,textvariable=self.opts,width=42); self.optentry.grid(row=5,column=1,pady=7)
+            ttk.Label(f,text="Dropdown में comma से अलग करें।").grid(row=6,column=1,sticky="w")
+            b=ttk.Frame(f); b.grid(row=7,column=0,columnspan=2,pady=15)
+            ttk.Button(b,text="Save",command=self.save).pack(side="left",padx=5); ttk.Button(b,text="Cancel",command=self.destroy).pack(side="left",padx=5)
+            self.toggle(); self.transient(parent); self.grab_set()
+        def toggle(self,event=None):
+            self.optentry.configure(state="normal" if self.typ.get()=="dropdown" else "disabled")
+        def save(self):
+            if not self.name.get().strip(): messagebox.showwarning("Validation","Field Name आवश्यक है।",parent=self); return
+            opts=[x.strip() for x in self.opts.get().split(",") if x.strip()] if self.typ.get()=="dropdown" else []
+            if self.typ.get()=="dropdown" and not opts: messagebox.showwarning("Validation","Dropdown options आवश्यक हैं।",parent=self); return
+            self.result={"field_name":self.name.get().strip(),"field_type":self.typ.get(),"required":self.req.get(),"active":self.act.get(),"options":opts,"description":self.desc.get().strip()}
+            self.destroy()
+    
+    
+    class RecordDialog(tk.Toplevel):
+        def __init__(self, parent, master_def, record=None):
+            super().__init__(parent)
+            self.result = None
+            self.master_def = master_def
+            self.record = record or {}
+            self.title(f"Record - {master_def.get('master_name', '')}")
+            self.geometry("620x560")
+            self.resizable(False, True)
+            outer = ttk.Frame(self, padding=14)
+            outer.pack(fill="both", expand=True)
+    
+            canvas = tk.Canvas(outer, highlightthickness=0)
+            sb = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+            form = ttk.Frame(canvas)
+            form.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            canvas.create_window((0,0), window=form, anchor="nw")
+            canvas.configure(yscrollcommand=sb.set)
+            canvas.pack(side="left", fill="both", expand=True)
+            sb.pack(side="right", fill="y")
+    
+            self.vars = {}
+            fields = [f for f in sorted(master_def.get("fields", []), key=lambda x:x.get("field_order",0))
+                      if f.get("active", True)]
+            for r, f in enumerate(fields):
+                fid = f["field_id"]
+                ttk.Label(form, text=f.get("field_name","") + (" *" if f.get("required") else "")).grid(
+                    row=r, column=0, sticky="w", padx=(0,10), pady=7)
+                var = tk.StringVar(value="" if self.record.get(fid) is None else str(self.record.get(fid)))
+                self.vars[fid] = (var, f)
+                typ = f.get("field_type","text")
+                if typ == "dropdown":
+                    w = ttk.Combobox(form, textvariable=var, values=f.get("options",[]), state="readonly", width=38)
+                elif typ == "boolean":
+                    w = ttk.Combobox(form, textvariable=var, values=["Yes","No"], state="readonly", width=38)
+                else:
+                    w = ttk.Entry(form, textvariable=var, width=42)
+                w.grid(row=r, column=1, sticky="ew", pady=7)
+    
+            b = ttk.Frame(self); b.pack(fill="x", padx=14, pady=10)
+            ttk.Button(b, text="Save", command=self.save).pack(side="left", padx=4)
+            ttk.Button(b, text="Cancel", command=self.destroy).pack(side="left", padx=4)
+            self.transient(parent); self.grab_set()
+    
+        def save(self):
+            values = {}
+            for fid, (var, f) in self.vars.items():
+                value = var.get().strip()
+                if f.get("required") and not value:
+                    messagebox.showwarning("Validation", f"Required Field '{f.get('field_name','')}' खाली है।", parent=self)
+                    return
+                values[fid] = normalize_import_value(value, f)
+            self.result = values
+            self.destroy()
+    
+    
+    class RecordsWindow(tk.Toplevel):
+        def __init__(self, parent, store, master_id):
+            super().__init__(parent)
+            self.store = store
+            self.master_id = master_id
+            self.master_def = store.get_master(master_id)
+            self.title(f"Records - {self.master_def.get('master_name','')}")
+            self.geometry("1200x650")
+            self.minsize(900,500)
+    
+            outer = ttk.Frame(self, padding=10); outer.pack(fill="both", expand=True)
+            top = ttk.Frame(outer); top.pack(fill="x", pady=(0,8))
+            self.count_var = tk.StringVar()
+            ttk.Label(top, textvariable=self.count_var, font=("Segoe UI",11,"bold")).pack(side="left")
+            ttk.Button(top, text="Duplicate Check", command=self.check_duplicates).pack(side="right", padx=4)
+            ttk.Button(top, text="Refresh", command=self.refresh).pack(side="right", padx=4)
+    
+            table = ttk.Frame(outer); table.pack(fill="both", expand=True)
+            self.fields = [f for f in sorted(self.master_def.get("fields",[]), key=lambda x:x.get("field_order",0))
+                           if f.get("active",True)]
+            cols = [f["field_id"] for f in self.fields]
+            self.tree = ttk.Treeview(table, columns=cols, show="headings", selectmode="browse")
             for f in self.fields:
-                v=rec.get(f["field_id"],"")
-                vals.append("Yes" if isinstance(v,bool) and v else "No" if isinstance(v,bool) else v)
-            self.tree.insert("", "end", iid=rec.get("_record_id"), values=vals)
-        self.count_var.set(f"{self.master_def.get('master_name','')} — Total Records: {len(records)}")
-
-    def selected_id(self):
-        s=self.tree.selection()
-        return s[0] if s else None
-
-    def add_record(self):
-        d=RecordDialog(self,self.master_def); self.wait_window(d)
-        if d.result is not None:
-            try: self.store.add_record(self.master_id,d.result); self.refresh()
-            except Exception as e: messagebox.showerror("Record Error",str(e),parent=self)
-
-    def edit_record(self):
-        rid=self.selected_id()
-        if not rid: return messagebox.showwarning("Selection","पहले Record चुनिए।",parent=self)
-        rec=next((r for r in self.store.load_records(self.master_id) if r.get("_record_id")==rid),None)
-        if not rec: return
-        d=RecordDialog(self,self.master_def,rec); self.wait_window(d)
-        if d.result is not None:
-            try: self.store.update_record(self.master_id,rid,d.result); self.refresh()
-            except Exception as e: messagebox.showerror("Record Error",str(e),parent=self)
-
-    def delete_record(self):
-        rid=self.selected_id()
-        if not rid: return messagebox.showwarning("Selection","पहले Record चुनिए।",parent=self)
-        if not messagebox.askyesno("Confirm Delete","क्या चयनित Record delete करना है?",parent=self): return
-        try: self.store.delete_record(self.master_id,rid); self.refresh()
-        except Exception as e: messagebox.showerror("Record Error",str(e),parent=self)
-
-    def check_duplicates(self):
-        try:
-            fields, duplicates = self.store.duplicate_analysis(self.master_id)
-            if not fields:
-                return messagebox.showinfo(
-                    "Duplicate Check",
-                    "इस Master के Fields में Software को कोई स्पष्ट identity field नहीं मिला।\n\n"
-                    "Mobile/Aadhaar/Jan Aadhaar/Name को अकेले universal duplicate key नहीं माना गया।",
-                    parent=self)
-            if not duplicates:
-                return messagebox.showinfo(
-                    "Duplicate Check",
-                    "कोई duplicate record नहीं मिला।\n\nCheck Fields: " + ", ".join(f.get("field_name","") for f in fields),
-                    parent=self)
-            details="\n".join(f"Record Row {a} ↔ Row {b}: {' + '.join(k)}" for a,b,k in duplicates[:15])
-            messagebox.showwarning(
-                "Duplicate Records Found",
-                f"Duplicate Check Fields: {', '.join(f.get('field_name','') for f in fields)}\n\n{details}",
-                parent=self)
-        except Exception as e:
-            messagebox.showerror("Duplicate Check Error",str(e),parent=self)
-
-
-class MasterDataGUI(tk.Tk):
-    def __init__(self,username="alokjobner"):
-        super().__init__(); self.store=MasterDefinitionStore(username); self.username=username; self.ids=[]; self.selected=None
-        self.store.ensure_pay_commission_master()
-        self.title("Master Data Management - Step 3"); self.geometry("1150x680")
-        self.build(); self.refresh()
-    def build(self):
-        ttk.Label(self,text="MASTER DATA MANAGEMENT",font=("Segoe UI",18,"bold")).pack(anchor="w",padx=15,pady=12)
-        body=ttk.Frame(self,padding=12); body.pack(fill="both",expand=True)
-        left=ttk.LabelFrame(body,text="Masters",padding=8); left.pack(side="left",fill="y",padx=(0,8))
-        self.lb=tk.Listbox(left,width=28,height=24,font=("Segoe UI",11)); self.lb.pack(fill="both",expand=True); self.lb.bind("<<ListboxSelect>>",self.select)
-        ttk.Button(left,text="+ Add New Master Data",command=self.add_master).pack(fill="x",pady=7)
-        ttk.Button(left,text="Refresh",command=self.refresh).pack(fill="x")
-        right=ttk.Frame(body); right.pack(side="left",fill="both",expand=True)
-        info=ttk.LabelFrame(right,text="Selected Master",padding=8); info.pack(fill="x")
-        self.n=tk.StringVar(value="कोई Master चयनित नहीं"); self.d=tk.StringVar()
-        ttk.Label(info,textvariable=self.n,font=("Segoe UI",12,"bold")).pack(side="left"); ttk.Label(info,textvariable=self.d).pack(side="left",padx=20)
-        self.edit_master_btn = ttk.Button(info,text="Edit Master",command=self.edit_master)
-        self.edit_master_btn.pack(side="right", padx=3)
-        self.delete_master_btn = ttk.Button(info,text="Delete Master",command=self.delete_master)
-        self.delete_master_btn.pack(side="right", padx=3)
-        ff=ttk.LabelFrame(right,text="Manage Fields",padding=8); ff.pack(fill="both",expand=True,pady=8)
-        cols=("order","name","type","required","active","description"); self.tree=ttk.Treeview(ff,columns=cols,show="headings")
-        heads={"order":"Order","name":"Field Name","type":"Type","required":"Required","active":"Active","description":"Description"}
-        widths={"order":70,"name":220,"type":130,"required":90,"active":80,"description":300}
-        for c in cols: self.tree.heading(c,text=heads[c]); self.tree.column(c,width=widths[c])
-        self.tree.pack(side="left",fill="both",expand=True); sb=ttk.Scrollbar(ff,orient="vertical",command=self.tree.yview); sb.pack(side="right",fill="y"); self.tree.configure(yscrollcommand=sb.set)
-        b=ttk.Frame(right); b.pack(fill="x")
-        self.add_field_btn = ttk.Button(b,text="+ Add Field",command=self.add_field)
-        self.add_field_btn.pack(side="left",padx=3)
-        self.edit_field_btn = ttk.Button(b,text="Edit Field",command=self.edit_field)
-        self.edit_field_btn.pack(side="left",padx=3)
-        self.delete_field_btn = ttk.Button(b,text="Delete Field",command=self.delete_field)
-        self.delete_field_btn.pack(side="left",padx=3)
-        self.template_btn = ttk.Button(b,text="Download Excel Template",command=self.download_template)
-        self.template_btn.pack(side="left",padx=10)
-        self.import_excel_btn = ttk.Button(b,text="Import Excel Data",command=self.import_excel)
-        self.import_excel_btn.pack(side="left",padx=3)
-        self.view_records_btn = ttk.Button(b,text="View Records",command=self.view_records)
-        self.view_records_btn.pack(side="left",padx=10)
-    def refresh(self):
-        self.store.load(); self.lb.delete(0,tk.END); self.ids=[]
-        for m in self.store.list_masters(): self.ids.append(m["master_id"]); self.lb.insert(tk.END,m["master_name"])
-        self.selected=None; self.n.set("कोई Master चयनित नहीं"); self.d.set(""); self.update_master_controls(); self.refresh_fields()
-    def update_master_controls(self):
-        locked = False
-        if self.selected:
-            locked = self.store.is_system_master(self.selected)
-
-        self.edit_master_btn.configure(
-            state=("disabled" if locked else "normal")
-        )
-        self.delete_master_btn.configure(
-            state=("disabled" if locked else "normal")
-        )
-
-        # Field buttons are created lazily below; if present, lock them too.
-        if hasattr(self, "add_field_btn"):
-            self.add_field_btn.configure(state=("disabled" if locked else "normal"))
-        if hasattr(self, "edit_field_btn"):
-            self.edit_field_btn.configure(state=("disabled" if locked else "normal"))
-        if hasattr(self, "delete_field_btn"):
-            self.delete_field_btn.configure(state=("disabled" if locked else "normal"))
-        if hasattr(self, "template_btn"):
-            self.template_btn.configure(state=("normal" if self.selected else "disabled"))
-        if hasattr(self, "import_excel_btn"):
-            self.import_excel_btn.configure(
-                state=("disabled" if (not self.selected or locked) else "normal")
-            )
-
-    def refresh_fields(self):
-        for x in self.tree.get_children(): self.tree.delete(x)
-        if not self.selected: return
-        m=self.store.get_master(self.selected)
-        if not m:return
-        for f in sorted(m.get("fields",[]),key=lambda x:x.get("field_order",0)):
-            self.tree.insert("", "end", iid=f["field_id"], values=(f.get("field_order"),f.get("field_name"),FIELD_TYPES.get(f.get("field_type"),f.get("field_type")), "Yes" if f.get("required") else "No","Yes" if f.get("active",True) else "No",f.get("description","")))
-    def select(self,event=None):
-        s=self.lb.curselection()
-        if not s:return
-        self.selected=self.ids[s[0]]; m=self.store.get_master(self.selected); self.n.set(m["master_name"]); self.d.set(m.get("description","")); self.update_master_controls(); self.refresh_fields()
-    def download_template(self):
-        if not self.selected:
-            return messagebox.showwarning("Selection", "पहले Master चुनिए।", parent=self)
-        m = self.store.get_master(self.selected)
-        if not m:
-            return
-        fields = [f for f in sorted(m.get("fields", []), key=lambda x: x.get("field_order", 0))
-                  if f.get("active", True)]
-        if not fields:
-            return messagebox.showwarning(
-                "No Active Fields",
-                "इस Master में कोई Active Field नहीं है। पहले Field जोड़िए।",
-                parent=self
-            )
-        safe = re.sub(r'[^A-Za-z0-9_\-\u0900-\u097F ]+', '_',
-                      m.get("master_name", "Master")).strip() or "Master"
-        path = filedialog.asksaveasfilename(
-            parent=self,
-            title="Download Excel Template",
-            defaultextension=".xlsx",
-            initialfile=f"{safe}_Template.xlsx",
-            filetypes=[("Excel Workbook", "*.xlsx")]
-        )
-        if not path:
-            return
-        try:
-            create_xlsx_template(m["master_name"], fields, path)
-            messagebox.showinfo(
-                "Template Ready",
-                f"Excel Template तैयार है।\n\n{path}\n\nTemplate में केवल Active Fields के नाम columns के रूप में दिए गए हैं।",
-                parent=self
-            )
-        except Exception as e:
-            messagebox.showerror("Excel Template Error", str(e), parent=self)
-
-    def import_excel(self):
-        if not self.selected:
-            return messagebox.showwarning("Selection", "पहले Master चुनिए।", parent=self)
-        m = self.store.get_master(self.selected)
-        if not m:
-            return
-        if m.get("owner_type") == SYSTEM_MASTER:
-            return messagebox.showwarning(
-                "Locked Master",
-                "Universal Pay Commission Master में Excel Data Import नहीं किया जा सकता।",
-                parent=self
-            )
-        path = filedialog.askopenfilename(
-            parent=self,
-            title="Import Excel Data",
-            filetypes=[("Excel Workbook", "*.xlsx")]
-        )
-        if not path:
-            return
-        if not messagebox.askyesno(
-            "Confirm Import",
-            "Excel की rows पढ़कर इस Master का वर्तमान imported data replace किया जाएगा।\n\nक्या आगे बढ़ें?",
-            parent=self
-        ):
-            return
-        try:
-            count = self.store.import_records_from_excel(self.selected, path)
-            messagebox.showinfo(
-                "Import Successful",
-                f"{count} record(s) Master '{m.get('master_name')}' में import हो गए।",
-                parent=self
-            )
-        except Exception as e:
-            messagebox.showerror("Excel Import Error", str(e), parent=self)
-
-    def view_records(self):
-        if not self.selected:
-            return messagebox.showwarning("Selection","पहले Master चुनिए।",parent=self)
-        if not self.store.get_master(self.selected):
-            return messagebox.showwarning("Selection","Master नहीं मिला।",parent=self)
-        RecordsWindow(self,self.store,self.selected)
-
-    def add_master(self):
-        name=simpledialog.askstring("Add New Master Data","Master का नाम:",parent=self)
-        if name:
-            try:self.store.create_master(name); self.refresh()
-            except Exception as e:messagebox.showerror("Error",str(e),parent=self)
-    def edit_master(self):
-        if not self.selected:return messagebox.showwarning("Selection","पहले Master चुनिए।",parent=self)
-        m=self.store.get_master(self.selected)
-        if m.get("owner_type") == SYSTEM_MASTER:
-            return messagebox.showwarning("Locked Master","Pay Commission Master [UNIVERSAL / LOCKED] को edit नहीं किया जा सकता।",parent=self)
-        name=simpledialog.askstring("Edit Master","Master का नाम:",initialvalue=m["master_name"],parent=self)
-        if name:
-            try:self.store.update_master_info(self.selected,name,m.get("description","")); self.refresh()
-            except Exception as e:messagebox.showerror("Error",str(e),parent=self)
-    def delete_master(self):
-        if not self.selected:
-            return messagebox.showwarning("Selection","पहले Master चुनिए।",parent=self)
-        m = self.store.get_master(self.selected)
-        if not m:
-            return messagebox.showwarning("Selection","Master नहीं मिला।",parent=self)
-        if m.get("owner_type") == SYSTEM_MASTER:
-            return messagebox.showwarning(
-                "Locked Master",
-                "Pay Commission Master [UNIVERSAL / LOCKED] को delete नहीं किया जा सकता।",
-                parent=self
-            )
-        if not messagebox.askyesno(
-            "Confirm Delete",
-            f"क्या '{m.get('master_name','')}' Master को delete करना है?\nयह क्रिया वापस नहीं होगी।",
-            parent=self
-        ):
-            return
-        try:
-            self.store.delete_master(self.selected)
+                fid=f["field_id"]; self.tree.heading(fid,text=f.get("field_name",""))
+                self.tree.column(fid,width=max(130,min(260,len(f.get("field_name",""))*10+50)))
+            self.tree.pack(side="left",fill="both",expand=True)
+            ysb=ttk.Scrollbar(table,orient="vertical",command=self.tree.yview); ysb.pack(side="right",fill="y")
+            xsb=ttk.Scrollbar(outer,orient="horizontal",command=self.tree.xview); xsb.pack(fill="x")
+            self.tree.configure(yscrollcommand=ysb.set,xscrollcommand=xsb.set)
+    
+            b=ttk.Frame(outer); b.pack(fill="x",pady=(8,0))
+            locked=self.store.is_system_master(master_id)
+            self.add_btn=ttk.Button(b,text="+ Add Record",command=self.add_record); self.add_btn.pack(side="left",padx=3)
+            self.edit_btn=ttk.Button(b,text="Edit Record",command=self.edit_record); self.edit_btn.pack(side="left",padx=3)
+            self.delete_btn=ttk.Button(b,text="Delete Record",command=self.delete_record); self.delete_btn.pack(side="left",padx=3)
+            if locked:
+                for w in (self.add_btn,self.edit_btn,self.delete_btn): w.configure(state="disabled")
             self.refresh()
-        except Exception as e:
-            messagebox.showerror("Error",str(e),parent=self)
-
-    def selected_field(self):
-        s=self.tree.selection()
-        if not s:return None
-        return self.store.get_field(self.selected,s[0])
-    def add_field(self):
-        if not self.selected:return messagebox.showwarning("Selection","पहले Master चुनिए।",parent=self)
-        if self.store.is_system_master(self.selected):
-            return messagebox.showwarning("Locked Master","Universal Pay Commission Master के fields बदले नहीं जा सकते।",parent=self)
-        d=FieldDialog(self); self.wait_window(d)
-        if d.result:
+    
+        def refresh(self):
+            for i in self.tree.get_children(): self.tree.delete(i)
+            records=self.store.load_records(self.master_id)
+            for rec in records:
+                vals=[]
+                for f in self.fields:
+                    v=rec.get(f["field_id"],"")
+                    vals.append("Yes" if isinstance(v,bool) and v else "No" if isinstance(v,bool) else v)
+                self.tree.insert("", "end", iid=rec.get("_record_id"), values=vals)
+            self.count_var.set(f"{self.master_def.get('master_name','')} — Total Records: {len(records)}")
+    
+        def selected_id(self):
+            s=self.tree.selection()
+            return s[0] if s else None
+    
+        def add_record(self):
+            d=RecordDialog(self,self.master_def); self.wait_window(d)
+            if d.result is not None:
+                try: self.store.add_record(self.master_id,d.result); self.refresh()
+                except Exception as e: messagebox.showerror("Record Error",str(e),parent=self)
+    
+        def edit_record(self):
+            rid=self.selected_id()
+            if not rid: return messagebox.showwarning("Selection","पहले Record चुनिए।",parent=self)
+            rec=next((r for r in self.store.load_records(self.master_id) if r.get("_record_id")==rid),None)
+            if not rec: return
+            d=RecordDialog(self,self.master_def,rec); self.wait_window(d)
+            if d.result is not None:
+                try: self.store.update_record(self.master_id,rid,d.result); self.refresh()
+                except Exception as e: messagebox.showerror("Record Error",str(e),parent=self)
+    
+        def delete_record(self):
+            rid=self.selected_id()
+            if not rid: return messagebox.showwarning("Selection","पहले Record चुनिए।",parent=self)
+            if not messagebox.askyesno("Confirm Delete","क्या चयनित Record delete करना है?",parent=self): return
+            try: self.store.delete_record(self.master_id,rid); self.refresh()
+            except Exception as e: messagebox.showerror("Record Error",str(e),parent=self)
+    
+        def check_duplicates(self):
             try:
-                x=d.result; self.store.add_field(self.selected,**x); self.refresh_fields()
-            except Exception as e:messagebox.showerror("Error",str(e),parent=self)
-    def edit_field(self):
-        if not self.selected:return messagebox.showwarning("Selection","पहले Master चुनिए।",parent=self)
-        if self.store.is_system_master(self.selected):
-            return messagebox.showwarning("Locked Master","Universal Pay Commission Master के fields बदले नहीं जा सकते।",parent=self)
-        old=self.selected_field()
-        if not old:return messagebox.showwarning("Selection","पहले Field चुनिए।",parent=self)
-        d=FieldDialog(self,deepcopy(old)); self.wait_window(d)
-        if d.result:
+                fields, duplicates = self.store.duplicate_analysis(self.master_id)
+                if not fields:
+                    return messagebox.showinfo(
+                        "Duplicate Check",
+                        "इस Master के Fields में Software को कोई स्पष्ट identity field नहीं मिला।\n\n"
+                        "Mobile/Aadhaar/Jan Aadhaar/Name को अकेले universal duplicate key नहीं माना गया।",
+                        parent=self)
+                if not duplicates:
+                    return messagebox.showinfo(
+                        "Duplicate Check",
+                        "कोई duplicate record नहीं मिला।\n\nCheck Fields: " + ", ".join(f.get("field_name","") for f in fields),
+                        parent=self)
+                details="\n".join(f"Record Row {a} ↔ Row {b}: {' + '.join(k)}" for a,b,k in duplicates[:15])
+                messagebox.showwarning(
+                    "Duplicate Records Found",
+                    f"Duplicate Check Fields: {', '.join(f.get('field_name','') for f in fields)}\n\n{details}",
+                    parent=self)
+            except Exception as e:
+                messagebox.showerror("Duplicate Check Error",str(e),parent=self)
+    
+    
+    class MasterDataGUI(tk.Tk):
+        def __init__(self,username="alokjobner"):
+            super().__init__(); self.store=MasterDefinitionStore(username); self.username=username; self.ids=[]; self.selected=None
+            self.store.ensure_pay_commission_master()
+            self.title("Master Data Management - Step 3"); self.geometry("1150x680")
+            self.build(); self.refresh()
+        def build(self):
+            ttk.Label(self,text="MASTER DATA MANAGEMENT",font=("Segoe UI",18,"bold")).pack(anchor="w",padx=15,pady=12)
+            body=ttk.Frame(self,padding=12); body.pack(fill="both",expand=True)
+            left=ttk.LabelFrame(body,text="Masters",padding=8); left.pack(side="left",fill="y",padx=(0,8))
+            self.lb=tk.Listbox(left,width=28,height=24,font=("Segoe UI",11)); self.lb.pack(fill="both",expand=True); self.lb.bind("<<ListboxSelect>>",self.select)
+            ttk.Button(left,text="+ Add New Master Data",command=self.add_master).pack(fill="x",pady=7)
+            ttk.Button(left,text="Refresh",command=self.refresh).pack(fill="x")
+            right=ttk.Frame(body); right.pack(side="left",fill="both",expand=True)
+            info=ttk.LabelFrame(right,text="Selected Master",padding=8); info.pack(fill="x")
+            self.n=tk.StringVar(value="कोई Master चयनित नहीं"); self.d=tk.StringVar()
+            ttk.Label(info,textvariable=self.n,font=("Segoe UI",12,"bold")).pack(side="left"); ttk.Label(info,textvariable=self.d).pack(side="left",padx=20)
+            self.edit_master_btn = ttk.Button(info,text="Edit Master",command=self.edit_master)
+            self.edit_master_btn.pack(side="right", padx=3)
+            self.delete_master_btn = ttk.Button(info,text="Delete Master",command=self.delete_master)
+            self.delete_master_btn.pack(side="right", padx=3)
+            ff=ttk.LabelFrame(right,text="Manage Fields",padding=8); ff.pack(fill="both",expand=True,pady=8)
+            cols=("order","name","type","required","active","description"); self.tree=ttk.Treeview(ff,columns=cols,show="headings")
+            heads={"order":"Order","name":"Field Name","type":"Type","required":"Required","active":"Active","description":"Description"}
+            widths={"order":70,"name":220,"type":130,"required":90,"active":80,"description":300}
+            for c in cols: self.tree.heading(c,text=heads[c]); self.tree.column(c,width=widths[c])
+            self.tree.pack(side="left",fill="both",expand=True); sb=ttk.Scrollbar(ff,orient="vertical",command=self.tree.yview); sb.pack(side="right",fill="y"); self.tree.configure(yscrollcommand=sb.set)
+            b=ttk.Frame(right); b.pack(fill="x")
+            self.add_field_btn = ttk.Button(b,text="+ Add Field",command=self.add_field)
+            self.add_field_btn.pack(side="left",padx=3)
+            self.edit_field_btn = ttk.Button(b,text="Edit Field",command=self.edit_field)
+            self.edit_field_btn.pack(side="left",padx=3)
+            self.delete_field_btn = ttk.Button(b,text="Delete Field",command=self.delete_field)
+            self.delete_field_btn.pack(side="left",padx=3)
+            self.template_btn = ttk.Button(b,text="Download Excel Template",command=self.download_template)
+            self.template_btn.pack(side="left",padx=10)
+            self.import_excel_btn = ttk.Button(b,text="Import Excel Data",command=self.import_excel)
+            self.import_excel_btn.pack(side="left",padx=3)
+            self.view_records_btn = ttk.Button(b,text="View Records",command=self.view_records)
+            self.view_records_btn.pack(side="left",padx=10)
+        def refresh(self):
+            self.store.load(); self.lb.delete(0,tk.END); self.ids=[]
+            for m in self.store.list_masters(): self.ids.append(m["master_id"]); self.lb.insert(tk.END,m["master_name"])
+            self.selected=None; self.n.set("कोई Master चयनित नहीं"); self.d.set(""); self.update_master_controls(); self.refresh_fields()
+        def update_master_controls(self):
+            locked = False
+            if self.selected:
+                locked = self.store.is_system_master(self.selected)
+    
+            self.edit_master_btn.configure(
+                state=("disabled" if locked else "normal")
+            )
+            self.delete_master_btn.configure(
+                state=("disabled" if locked else "normal")
+            )
+    
+            # Field buttons are created lazily below; if present, lock them too.
+            if hasattr(self, "add_field_btn"):
+                self.add_field_btn.configure(state=("disabled" if locked else "normal"))
+            if hasattr(self, "edit_field_btn"):
+                self.edit_field_btn.configure(state=("disabled" if locked else "normal"))
+            if hasattr(self, "delete_field_btn"):
+                self.delete_field_btn.configure(state=("disabled" if locked else "normal"))
+            if hasattr(self, "template_btn"):
+                self.template_btn.configure(state=("normal" if self.selected else "disabled"))
+            if hasattr(self, "import_excel_btn"):
+                self.import_excel_btn.configure(
+                    state=("disabled" if (not self.selected or locked) else "normal")
+                )
+    
+        def refresh_fields(self):
+            for x in self.tree.get_children(): self.tree.delete(x)
+            if not self.selected: return
+            m=self.store.get_master(self.selected)
+            if not m:return
+            for f in sorted(m.get("fields",[]),key=lambda x:x.get("field_order",0)):
+                self.tree.insert("", "end", iid=f["field_id"], values=(f.get("field_order"),f.get("field_name"),FIELD_TYPES.get(f.get("field_type"),f.get("field_type")), "Yes" if f.get("required") else "No","Yes" if f.get("active",True) else "No",f.get("description","")))
+        def select(self,event=None):
+            s=self.lb.curselection()
+            if not s:return
+            self.selected=self.ids[s[0]]; m=self.store.get_master(self.selected); self.n.set(m["master_name"]); self.d.set(m.get("description","")); self.update_master_controls(); self.refresh_fields()
+        def download_template(self):
+            if not self.selected:
+                return messagebox.showwarning("Selection", "पहले Master चुनिए।", parent=self)
+            m = self.store.get_master(self.selected)
+            if not m:
+                return
+            fields = [f for f in sorted(m.get("fields", []), key=lambda x: x.get("field_order", 0))
+                      if f.get("active", True)]
+            if not fields:
+                return messagebox.showwarning(
+                    "No Active Fields",
+                    "इस Master में कोई Active Field नहीं है। पहले Field जोड़िए।",
+                    parent=self
+                )
+            safe = re.sub(r'[^A-Za-z0-9_\-\u0900-\u097F ]+', '_',
+                          m.get("master_name", "Master")).strip() or "Master"
+            path = filedialog.asksaveasfilename(
+                parent=self,
+                title="Download Excel Template",
+                defaultextension=".xlsx",
+                initialfile=f"{safe}_Template.xlsx",
+                filetypes=[("Excel Workbook", "*.xlsx")]
+            )
+            if not path:
+                return
             try:
-                x=d.result; self.store.update_field(self.selected,old["field_id"],**x); self.refresh_fields()
-            except Exception as e:messagebox.showerror("Error",str(e),parent=self)
-    def delete_field(self):
-        if not self.selected:return
-        if self.store.is_system_master(self.selected):
-            return messagebox.showwarning("Locked Master","Universal Pay Commission Master के fields बदले नहीं जा सकते।",parent=self)
-        old=self.selected_field()
-        if not old:return messagebox.showwarning("Selection","पहले Field चुनिए।",parent=self)
-        if messagebox.askyesno("Confirm",f"क्या '{old['field_name']}' हटाना है?",parent=self):
-            try:self.store.delete_field(self.selected,old["field_id"]); self.refresh_fields()
-            except Exception as e:messagebox.showerror("Error",str(e),parent=self)
-
-def run_gui(username="alokjobner"):
-    MasterDataGUI(username).mainloop()
-
+                create_xlsx_template(m["master_name"], fields, path)
+                messagebox.showinfo(
+                    "Template Ready",
+                    f"Excel Template तैयार है।\n\n{path}\n\nTemplate में केवल Active Fields के नाम columns के रूप में दिए गए हैं।",
+                    parent=self
+                )
+            except Exception as e:
+                messagebox.showerror("Excel Template Error", str(e), parent=self)
+    
+        def import_excel(self):
+            if not self.selected:
+                return messagebox.showwarning("Selection", "पहले Master चुनिए।", parent=self)
+            m = self.store.get_master(self.selected)
+            if not m:
+                return
+            if m.get("owner_type") == SYSTEM_MASTER:
+                return messagebox.showwarning(
+                    "Locked Master",
+                    "Universal Pay Commission Master में Excel Data Import नहीं किया जा सकता।",
+                    parent=self
+                )
+            path = filedialog.askopenfilename(
+                parent=self,
+                title="Import Excel Data",
+                filetypes=[("Excel Workbook", "*.xlsx")]
+            )
+            if not path:
+                return
+            if not messagebox.askyesno(
+                "Confirm Import",
+                "Excel की rows पढ़कर इस Master का वर्तमान imported data replace किया जाएगा।\n\nक्या आगे बढ़ें?",
+                parent=self
+            ):
+                return
+            try:
+                count = self.store.import_records_from_excel(self.selected, path)
+                messagebox.showinfo(
+                    "Import Successful",
+                    f"{count} record(s) Master '{m.get('master_name')}' में import हो गए।",
+                    parent=self
+                )
+            except Exception as e:
+                messagebox.showerror("Excel Import Error", str(e), parent=self)
+    
+        def view_records(self):
+            if not self.selected:
+                return messagebox.showwarning("Selection","पहले Master चुनिए।",parent=self)
+            if not self.store.get_master(self.selected):
+                return messagebox.showwarning("Selection","Master नहीं मिला।",parent=self)
+            RecordsWindow(self,self.store,self.selected)
+    
+        def add_master(self):
+            name=simpledialog.askstring("Add New Master Data","Master का नाम:",parent=self)
+            if name:
+                try:self.store.create_master(name); self.refresh()
+                except Exception as e:messagebox.showerror("Error",str(e),parent=self)
+        def edit_master(self):
+            if not self.selected:return messagebox.showwarning("Selection","पहले Master चुनिए।",parent=self)
+            m=self.store.get_master(self.selected)
+            if m.get("owner_type") == SYSTEM_MASTER:
+                return messagebox.showwarning("Locked Master","Pay Commission Master [UNIVERSAL / LOCKED] को edit नहीं किया जा सकता।",parent=self)
+            name=simpledialog.askstring("Edit Master","Master का नाम:",initialvalue=m["master_name"],parent=self)
+            if name:
+                try:self.store.update_master_info(self.selected,name,m.get("description","")); self.refresh()
+                except Exception as e:messagebox.showerror("Error",str(e),parent=self)
+        def delete_master(self):
+            if not self.selected:
+                return messagebox.showwarning("Selection","पहले Master चुनिए।",parent=self)
+            m = self.store.get_master(self.selected)
+            if not m:
+                return messagebox.showwarning("Selection","Master नहीं मिला।",parent=self)
+            if m.get("owner_type") == SYSTEM_MASTER:
+                return messagebox.showwarning(
+                    "Locked Master",
+                    "Pay Commission Master [UNIVERSAL / LOCKED] को delete नहीं किया जा सकता।",
+                    parent=self
+                )
+            if not messagebox.askyesno(
+                "Confirm Delete",
+                f"क्या '{m.get('master_name','')}' Master को delete करना है?\nयह क्रिया वापस नहीं होगी।",
+                parent=self
+            ):
+                return
+            try:
+                self.store.delete_master(self.selected)
+                self.refresh()
+            except Exception as e:
+                messagebox.showerror("Error",str(e),parent=self)
+    
+        def selected_field(self):
+            s=self.tree.selection()
+            if not s:return None
+            return self.store.get_field(self.selected,s[0])
+        def add_field(self):
+            if not self.selected:return messagebox.showwarning("Selection","पहले Master चुनिए।",parent=self)
+            if self.store.is_system_master(self.selected):
+                return messagebox.showwarning("Locked Master","Universal Pay Commission Master के fields बदले नहीं जा सकते।",parent=self)
+            d=FieldDialog(self); self.wait_window(d)
+            if d.result:
+                try:
+                    x=d.result; self.store.add_field(self.selected,**x); self.refresh_fields()
+                except Exception as e:messagebox.showerror("Error",str(e),parent=self)
+        def edit_field(self):
+            if not self.selected:return messagebox.showwarning("Selection","पहले Master चुनिए।",parent=self)
+            if self.store.is_system_master(self.selected):
+                return messagebox.showwarning("Locked Master","Universal Pay Commission Master के fields बदले नहीं जा सकते।",parent=self)
+            old=self.selected_field()
+            if not old:return messagebox.showwarning("Selection","पहले Field चुनिए।",parent=self)
+            d=FieldDialog(self,deepcopy(old)); self.wait_window(d)
+            if d.result:
+                try:
+                    x=d.result; self.store.update_field(self.selected,old["field_id"],**x); self.refresh_fields()
+                except Exception as e:messagebox.showerror("Error",str(e),parent=self)
+        def delete_field(self):
+            if not self.selected:return
+            if self.store.is_system_master(self.selected):
+                return messagebox.showwarning("Locked Master","Universal Pay Commission Master के fields बदले नहीं जा सकते।",parent=self)
+            old=self.selected_field()
+            if not old:return messagebox.showwarning("Selection","पहले Field चुनिए।",parent=self)
+            if messagebox.askyesno("Confirm",f"क्या '{old['field_name']}' हटाना है?",parent=self):
+                try:self.store.delete_field(self.selected,old["field_id"]); self.refresh_fields()
+                except Exception as e:messagebox.showerror("Error",str(e),parent=self)
+    
+    def run_gui(username="alokjobner"):
+        MasterDataGUI(username).mainloop()
+    
+else:
+    def run_gui(username="alokjobner"):
+        raise RuntimeError("Tkinter GUI is not available in this Streamlit/Linux environment. Use the Streamlit Master Data interface.")
 if __name__=="__main__":
     run_gui()
