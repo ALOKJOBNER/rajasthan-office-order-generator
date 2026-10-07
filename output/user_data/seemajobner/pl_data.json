@@ -1,0 +1,83 @@
+{
+  "office_data": {
+    "office_name": "प्रधानाचार्य, रा.उ.मा.वि. रोजड़ी (जयपुर)",
+    "fin_year": "2026-27",
+    "pay_month_name": "सितम्बर",
+    "order_no": "संस्था/लेखा/2026/3342",
+    "sub_treasury": "सांभर लेक"
+  },
+  "employees": [
+    {
+      "emp_name": "ALOK KUMAR SINGH",
+      "designation": "वरिष्ठ अध्यापक",
+      "app_date": "01/10/2026",
+      "basic_pay": 65000,
+      "total_pl": 265,
+      "surrender_pl": 15,
+      "balance_pl": 250,
+      "basic_share": 32500,
+      "da_share": 19500,
+      "total_payable": 52000
+    },
+    {
+      "emp_name": "ALOK KUMAR SINGH",
+      "designation": "वरिष्ठ अध्यापक",
+      "app_date": "01/10/2026",
+      "basic_pay": 65000,
+      "total_pl": 265,
+      "surrender_pl": 15,
+      "balance_pl": 250,
+      "basic_share": 32500,
+      "da_share": 19500,
+      "total_payable": 52000
+    },
+    {
+      "emp_name": "ALOK KUMAR SINGH",
+      "designation": "वरिष्ठ अध्यापक",
+      "app_date": "01/10/2026",
+      "basic_pay": 65000,
+      "total_pl": 265,
+      "surrender_pl": 15,
+      "balance_pl": 250,
+      "basic_share": 32500,
+      "da_share": 19500,
+      "total_payable": 52000
+    },
+    {
+      "emp_name": "ALOK KUMAR SINGH",
+      "designation": "वरिष्ठ अध्यापक",
+      "app_date": "01/10/2026",
+      "basic_pay": 65000,
+      "total_pl": 265,
+      "surrender_pl": 15,
+      "balance_pl": 250,
+      "basic_share": 32500,
+      "da_share": 19500,
+      "total_payable": 52000
+    },
+    {
+      "emp_name": "ALOK KUMAR SINGH",
+      "designation": "वरिष्ठ अध्यापक",
+      "app_date": "01/10/2026",
+      "basic_pay": 65000,
+      "total_pl": 265,
+      "surrender_pl": 15,
+      "balance_pl": 250,
+      "basic_share": 32500,
+      "da_share": 19500,
+      "total_payable": 52000
+    },
+    {
+      "emp_name": "ALOK KUMAR SINGH",
+      "designation": "वरिष्ठ अध्यापक",
+      "app_date": "01/10/2026",
+      "basic_pay": 65000,
+      "total_pl": 265,
+      "surrender_pl": 15,
+      "balance_pl": 250,
+      "basic_share": 32500,
+      "da_share": 19500,
+      "total_payable": 52000
+    }
+  ]
+}
