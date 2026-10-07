@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<title>सामयिक वेतन वृद्धि आदेश</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 8mm 8mm 12mm 8mm;
+    @top-left { content: none; }
+    @top-center { content: none; }
+    @top-right { content: none; }
+    @bottom-left { content: none; }
+    @bottom-center { content: none; }
+    @bottom-right { content: none; }
+  }
+  *, *::before, *::after {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+  }
+  body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans Devanagari', 'Mangal', 'Arial Unicode MS', sans-serif;
+    font-size: 10pt;
+    line-height: 1.45;
+    color: #000;
+    background-color: #fff;
+  }
+  .page-box {
+    border: 2px solid #000;
+    padding: 14px 18px;
+    min-height: calc(100vh - 22mm);
+  }
+  .office-header { text-align: center; margin-bottom: 6px; }
+  .office-title { font-size: 15pt; font-weight: bold; text-decoration: underline; margin-bottom: 4px; }
+  .order-title { font-size: 13pt; font-weight: bold; margin-bottom: 8px; }
+  .order-body {
+    text-align: justify;
+    text-indent: 30px;
+    font-size: 10pt;
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+    margin-bottom: 12px;
+    font-size: 9pt;
+  }
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; }
+  th, td {
+    border: 1px solid #000;
+    padding: 4px 2px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  th { background-color: #f2f2f2; font-weight: bold; }
+  .sub-th { font-size: 8pt; font-weight: normal; color: #444; }
+  .cert-text {
+    font-size: 9.5pt;
+    line-height: 1.5;
+    margin: 8px 0 6px 0;
+    text-align: justify;
+    page-break-inside: avoid;
+  }
+  .sig-container {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+    page-break-inside: avoid;
+  }
+  .sig-box {
+    text-align: center;
+    min-width: 230px;
+    line-height: 1.35;
+    white-space: nowrap;
+  }
+  .sig-space { height: 48px; }
+  .sig-box .title { font-weight: bold; font-size: 10.5pt; }
+  .sig-box .seal { font-size: 9.5pt; color: #333; }
+  .dispatch-section {
+    border-top: 1px dashed #777;
+    padding-top: 8px;
+    margin-top: 6px;
+    page-break-inside: avoid;
+  }
+  .dispatch-row {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 10pt;
+    font-weight: bold;
+  }
+  .copy-list {
+    margin: 4px 0 10px 25px;
+    padding: 0;
+    font-size: 9.5pt;
+    line-height: 1.5;
+  }
+  .footer-outside {
+    margin-top: 4px;
+    font-size: 8pt;
+    color: #333;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-box">
+  <div class="office-header">
+    <div class="office-title">कार्यालय प्रधानाचार्य, रा.उ.मा.वि. रोजड़ी (जयपुर)</div>
+    <div class="order-title">-:: सामयिक वेतन वृद्धि आदेश ::-</div>
+  </div>
+
+  <div class="order-body">
+    राज्य सरकार के वित्त विभाग के आदेश क्रमांक:- <b>F.15 (1) FD (Rules)/2017 Jaipur Dated 30 Oct. 2017</b> व द्वितीय संशोधन दिनांक <b>09-12-2017</b> के प्रावधानों के अनुसरण में निम्नलिखित कार्मिकों की एक वर्ष की संतोषजनक सेवा पूर्ण करने पर उनके नाम के सम्मुख कॉलम संख्या 7 में अंकित दिनांक से वार्षिक वेतन वृद्धि कॉलम संख्या 8 के अनुसार स्वीकृत की जाकर तदनुसार वेतन एवं भत्ते भुगतान किये जाने की स्वीकृति प्रदान की जाती है।
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 4%;">क्र.सं.</th>
+        <th style="width: 19%;">नाम अधिकारी / कार्मिक</th>
+        <th style="width: 15%;">पद</th>
+        <th style="width: 9%;">स्थायी / अस्थायी</th>
+        <th style="width: 9%;">पद का वेतन लेवल</th>
+        <th style="width: 12%;">30 जून 2027 को मूल वेतन</th>
+        <th style="width: 10%;">वर्तमान वेतनवृद्धि की दिनांक</th>
+        <th style="width: 11%;">भावी वेतन (₹)</th>
+        <th style="width: 11%;">आगामी वेतनवृद्धि की दिनांक</th>
+      </tr>
+      <tr class="sub-th">
+        <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+        <tr>
+          <td>1</td>
+          <td style="text-align: left; padding-left: 6px;"><b>आलोक कुमार सिंह</b></td>
+          <td>वरिष्ठ अध्यापक</td>
+          <td>स्थायी</td>
+          <td>L-12</td>
+          <td>65,000</td>
+          <td>01/07/2027</td>
+          <td><b>67,000</b></td>
+          <td>01/07/2028</td>
+        </tr>
+        
+    </tbody>
+  </table>
+
+  <div class="cert-text">प्रमाणित किया जाता है कि उक्त कार्मिकों ने ऐसे किसी असाधारण अवकाश का उपभोग नहीं किया है, जिससे उनकी वेतन वृद्धि प्रभावित होती हो। जुलाई माह की प्रथम तारीख को कार्मिक के आकस्मिक अवकाश के अतिरिक्त अन्य अवकाश पर होने की स्थिति में वेतन वृद्धि का आर्थिक लाभ वास्तविक कार्यग्रहण करने की तिथि से देय होगा।</div>
+
+  <!-- प्रथम हस्ताक्षर ब्लॉक -->
+  <div class="sig-container">
+    <div class="sig-box">
+      <div class="sig-space"></div>
+      <div class="title">हस्ताक्षर कार्यालय अध्यक्ष</div>
+      <div class="seal">(मोहर सहित)</div>
+    </div>
+  </div>
+
+  <!-- प्रेषण एवं प्रतिलिपि ब्लॉक -->
+  <div class="dispatch-section">
+    <div class="dispatch-row">
+      <div>क्रमांक: संस्था/वेतनवृद्धि/2026/....</div>
+      <div>दिनांक : 01/07/2026</div>
+    </div>
+
+    <div style="font-size: 9.5pt; font-weight: bold;">प्रतिलिपि- सूचनार्थ एवं आवश्यक कार्यवाही हेतु प्रेषित:</div>
+    <ol class="copy-list">
+      <li>श्रीमान उपकोषाधिकारी सांभर लेक।</li>
+      <li>लेखा शाखा / संस्थापन शाखा ।</li>
+      <li>व्यक्तिगत पंजिका (सम्बन्धित कार्मिक)।</li>
+      <li>रक्षित पत्रावली।</li>
+    </ol>
+
+    <!-- द्वितीय हस्ताक्षर ब्लॉक -->
+    <div class="sig-container" style="margin-bottom: 0;">
+      <div class="sig-box">
+        <div class="sig-space"></div>
+        <div class="title">हस्ताक्षर कार्यालय अध्यक्ष</div>
+        <div class="seal">(मोहर सहित)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- डेवलपर क्रेडिट फुटर -->
+<div class="footer-outside">
+  <div>सॉफ्टवेयर डेवलपर: <b>आलोक कुमार सिंह, वरिष्ठ अध्यापक, राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी, पंचायत समिति, सांभर लेक (जयपुर)</b> | ईमेल: <b>alokjobner@gmail.com</b></div>
+  <div>Office Order Generator</div>
+</div>
+
+</body>
+</html>

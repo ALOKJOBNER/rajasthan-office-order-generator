@@ -1,0 +1,23 @@
+{
+  "office_data": {
+    "office_name": "कार्यालय प्रधानाचार्य, राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी (जयपुर)",
+    "fin_year": "2026-27",
+    "pay_month_name": "सितम्बर",
+    "order_no": "संस्था/लेखा/2026/4732",
+    "sub_treasury": "सांभर लेक"
+  },
+  "employees": [
+    {
+      "emp_name": "alok singh",
+      "designation": "वरिष्ठ अध्यापक",
+      "app_date": "27/09/2026",
+      "basic_pay": 65000,
+      "total_pl": 265,
+      "surrender_pl": 15,
+      "balance_pl": 250,
+      "basic_share": 32500,
+      "da_share": 19500,
+      "total_payable": 52000
+    }
+  ]
+}

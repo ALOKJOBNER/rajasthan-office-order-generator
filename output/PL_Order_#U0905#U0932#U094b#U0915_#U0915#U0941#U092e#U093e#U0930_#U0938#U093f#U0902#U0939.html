@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<title>कार्यालय आदेश</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 8mm 8mm 12mm 8mm;
+    @top-left { content: none; }
+    @top-center { content: none; }
+    @top-right { content: none; }
+    @bottom-left { content: none; }
+    @bottom-center { content: none; }
+    @bottom-right { content: none; }
+  }
+  *, *::before, *::after {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+  }
+  body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans Devanagari', 'Mangal', 'Arial Unicode MS', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: #000;
+    background-color: #fff;
+  }
+  .page-box {
+    border: 2px solid #000;
+    padding: 14px 18px;
+    min-height: calc(100vh - 22mm);
+  }
+  .office-header {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .office-title {
+    font-size: 15pt;
+    font-weight: bold;
+    text-decoration: underline;
+    margin-bottom: 4px;
+  }
+  .order-title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-decoration: underline;
+    margin-bottom: 10px;
+  }
+  .order-body {
+    text-align: justify;
+    text-indent: 35px;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    margin-bottom: 10px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+    margin-bottom: 12px;
+    font-size: 9pt;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid #000;
+    padding: 4px 2px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+  }
+  .cert-text {
+    font-size: 10pt;
+    line-height: 1.55;
+    margin: 10px 0 8px 0;
+    text-align: justify;
+    page-break-inside: avoid;
+  }
+
+  /* हस्ताक्षर एवं मुहर ब्लॉक */
+  .sig-container {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+    page-break-inside: avoid;
+  }
+  .sig-box {
+    text-align: center;
+    min-width: 230px;
+    line-height: 1.35;
+    white-space: nowrap;
+  }
+  /* हस्ताक्षर व सील हेतु पर्याप्त खाली जगह */
+  .sig-space {
+    height: 48px;
+  }
+  .sig-box .title {
+    font-weight: bold;
+    font-size: 10.5pt;
+  }
+  .sig-box .seal {
+    font-size: 9.5pt;
+    color: #333;
+  }
+
+  .dispatch-section {
+    border-top: 1px dashed #777;
+    padding-top: 8px;
+    margin-top: 6px;
+    page-break-inside: avoid;
+  }
+  .dispatch-row {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 10pt;
+    font-weight: bold;
+  }
+  .copy-list {
+    margin: 4px 0 10px 25px;
+    padding: 0;
+    font-size: 9.5pt;
+    line-height: 1.55;
+  }
+  .footer-outside {
+    margin-top: 4px;
+    font-size: 8pt;
+    color: #333;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-box">
+  <div class="office-header">
+    <div class="office-title">कार्यालय कार्यालय प्रधानाचार्य, राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी (जयपुर)</div>
+    <div class="order-title">कार्यालय आदेश</div>
+  </div>
+
+  <div class="order-body">
+    वित्त विभाग, राजस्थान सरकार के आदेश क्रमांक : <b>F 1(12) FD / Rules / 2008</b> जयपुर, दिनांक <b>06-02-2009</b> के अनुसार निम्न अधिकारी / कर्मचारी को उनके आवेदन किये जाने पर वित्तीय वर्ष <b>2026-27</b> हेतु माह <b>सितम्बर 2026</b> का निम्नानुसार उपार्जित अवकाश के नकद भुगतान किये जाने की स्वीकृति प्रदान की जाती है।
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2" style="width: 4%;">क्र. सं.</th>
+        <th rowspan="2" style="width: 19%;">नाम कर्मचारी</th>
+        <th rowspan="2" style="width: 16%;">पद</th>
+        <th rowspan="2" style="width: 10%;">आवेदन दिनांक</th>
+        <th rowspan="2" style="width: 11%;">मूल वेतन (₹)</th>
+        <th colspan="3" style="width: 18%;">समर्पित अवकाश विवरण</th>
+        <th colspan="3" style="width: 22%;">भुगतान योग्य राशि (₹)</th>
+      </tr>
+      <tr>
+        <th style="width: 6%;">कुल</th>
+        <th style="width: 6%;">समर्पण</th>
+        <th style="width: 6%;">शेष</th>
+        <th style="width: 7%;">मूल वेतन</th>
+        <th style="width: 7%;">महंगाई भत्ता</th>
+        <th style="width: 8%;">योग</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+        <tr>
+          <td>1</td>
+          <td style="text-align: left; padding-left: 6px;"><b>अलोक कुमार सिंह</b></td>
+          <td>वरिष्ठ अध्यापक</td>
+          <td>08/09/2026</td>
+          <td>65,000</td>
+          <td>265</td>
+          <td>15</td>
+          <td><b>250</b></td>
+          <td>32,500</td>
+          <td>18,850</td>
+          <td><b>51,350</b></td>
+        </tr>
+        
+    </tbody>
+  </table>
+
+  <div class="cert-text">
+    <b>प्रमाणित किया जाता है</b> कि ब्लॉक वर्ष <b>2026-27</b> में उक्त कार्मिक ने उपार्जित अवकाश के नकद भुगतान का लाभ पूर्व में प्राप्त नहीं किया है तथा उपरोक्तानुसार कार्मिक की सेवा पुस्तिका / अवकाश लेखे में समर्पित अवकाश का इन्द्राज कर दिया गया है।
+  </div>
+
+  <!-- प्रथम हस्ताक्षर ब्लॉक (हस्ताक्षर व सील हेतु 48px खाली स्थान के साथ) -->
+  <div class="sig-container">
+    <div class="sig-box">
+      <div class="sig-space"></div>
+      <div class="title">हस्ताक्षर कार्यालय अध्यक्ष</div>
+      <div class="seal">(मोहर सहित)</div>
+    </div>
+  </div>
+
+  <!-- प्रेषण एवं प्रतिलिपि ब्लॉक -->
+  <div class="dispatch-section">
+    <div class="dispatch-row">
+      <div>क्रमांक: संस्था/लेखा/2026/4732</div>
+      <div>दिनांक : 08/09/2026</div>
+    </div>
+
+    <div style="font-size: 9.5pt; font-weight: bold;">प्रतिलिपि- सूचनार्थ एवं आवश्यक कार्यवाही हेतु प्रेषित:</div>
+    <ol class="copy-list">
+      <li>उपकोष कार्यालय सांभर लेक।</li>
+      <li>लेखा शाखा ।</li>
+      <li>व्यक्तिगत पंजिका (संबंधित कार्मिक)।</li>
+      <li>रक्षित पत्रावली।</li>
+    </ol>
+
+    <!-- द्वितीय हस्ताक्षर ब्लॉक (हस्ताक्षर व सील हेतु 48px खाली स्थान के साथ) -->
+    <div class="sig-container" style="margin-bottom: 0;">
+      <div class="sig-box">
+        <div class="sig-space"></div>
+        <div class="title">हस्ताक्षर कार्यालय अध्यक्ष</div>
+        <div class="seal">(मोहर सहित)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- केवल एक बार बॉर्डर के बाहर दिखने वाला सिंगल फुटर -->
+<div class="footer-outside">
+  <div>सॉफ्टवेयर डेवलपर: <b>आलोक कुमार सिंह, वरिष्ठ अध्यापक, राजकीय उच्च माध्यमिक विद्यालय, रोजड़ी, पंचायत समिति, सांभर लेक (जयपुर)</b> | ईमेल: <b>alokjobner@gmail.com</b></div>
+  <div>Office Order Generator</div>
+</div>
+
+</body>
+</html>
