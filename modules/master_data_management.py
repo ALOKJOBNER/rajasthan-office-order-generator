@@ -343,6 +343,7 @@ def render_admin_pay_commission_master(service):
                 if st.button("हाँ, Delete करें", type="primary", use_container_width=True, key="admin_pc_delete_confirm"):
                     data = [r for r in records if r.get("_record_id") != pending_delete]
                     service.store.save_records(master["master_id"], data)
+                    service.sync_universal_pay_commission(master, data)
                     st.session_state.pop("admin_pc_delete_pending", None)
                     st.session_state.pop(mode_key, None)
                     st.success("Pay Commission record delete हो गया।")
@@ -423,6 +424,7 @@ def render_admin_pay_commission_master(service):
                 rec["_updated_at"] = datetime.now().isoformat(timespec="seconds")
                 new_records.append(rec)
             service.store.save_records(master["master_id"], new_records)
+            service.sync_universal_pay_commission(master, new_records)
             st.session_state.pop(mode_key, None)
             st.success("Pay Commission Master record सफलतापूर्वक save/update हो गया।")
             st.rerun()
