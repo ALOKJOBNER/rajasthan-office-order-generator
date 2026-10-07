@@ -1,0 +1,14 @@
+{
+    "vendors": {
+        "विद्यालय कलेक्सन फुलेरा": {
+            "bank_name": "PNB",
+            "account": "4567890987699",
+            "ifsc": "SBIN0011305"
+        },
+        "VIDYALAY COLLECTION": {
+            "bank_name": "Punjab National Bank",
+            "account": "40123456789",
+            "ifsc": "PUNB0123400"
+        }
+    }
+}
