@@ -66,21 +66,52 @@ def convert_value(v, field: dict):
 
 
 def validate_record(master: dict, values: dict) -> None:
-    for field in active_fields(master):
+    fields = active_fields(master)
+    by_name = {norm(f.get("field_name")): f for f in fields}
+
+    # Normal mandatory fields are enforced for every Employee Master record.
+    for field in fields:
         if field.get("required") and str(values.get(field["field_id"], "")).strip() == "":
             raise ValueError(f"Mandatory field '{field.get('field_name')}' खाली है।")
+
+    # Employee-specific rules: these fields are required because they are used
+    # as employee identity / salary-calculation inputs.
+    if norm(master.get("master_name")) == norm("Employee Master Data"):
+        always_required = [
+            "Employee Name", "Employee ID", "GPF / PRAN Number",
+            "Bank Name", "Branch", "Account Number", "IFSC",
+            "Pay Commission", "Pay Level", "Basic Pay",
+        ]
+        for name in always_required:
+            field = by_name.get(norm(name))
+            if field and str(values.get(field["field_id"], "")).strip() == "":
+                raise ValueError(f"Employee Master में '{name}' अनिवार्य है।")
+
+        # 6th CPC requires both Pay Band and Grade Pay.  They are conditional
+        # mandatory fields, while remaining optional for 5th/7th CPC.
+        pc_field = by_name.get(norm("Pay Commission"))
+        pc_value = str(values.get(pc_field["field_id"], "")).strip() if pc_field else ""
+        if norm(pc_value) == norm("6th Pay Commission"):
+            for name in ("Pay Band", "Grade Pay"):
+                field = by_name.get(norm(name))
+                if field and str(values.get(field["field_id"], "")).strip() == "":
+                    raise ValueError(f"6th Pay Commission के लिए '{name}' अनिवार्य है।")
 
 
 def make_template(master: dict) -> bytes:
     """Create an annotated Excel template for Admin and User Master Data."""
     fields = active_fields(master)
-    columns = [f["field_name"] + (" *" if f.get("required") else "") for f in fields]
+    conditional_6th = {norm("Pay Band"), norm("Grade Pay")} if norm(master.get("master_name")) == norm("Employee Master Data") else set()
+    columns = [
+        f["field_name"] + (" *" if f.get("required") or norm(f.get("field_name")) in conditional_6th else "")
+        for f in fields
+    ]
     data = pd.DataFrame([{c: "" for c in columns}])
     definitions = pd.DataFrame([
         {
             "Field Name": f["field_name"],
             "Field Type": f.get("field_type", "text"),
-            "Mandatory": "Yes — अनिवार्य" if f.get("required") else "No — वैकल्पिक",
+            "Mandatory": ("Yes — अनिवार्य" if f.get("required") else ("Conditional — 6th CPC में अनिवार्य" if norm(f.get("field_name")) in conditional_6th else "No — वैकल्पिक")),
             "Description": f.get("description", ""),
             "Options": ", ".join(map(str, f.get("options", []))),
         } for f in fields
@@ -190,10 +221,10 @@ def ensure_standard_masters(service) -> list[str]:
             if field and field.get("active", True):
                 store.update_field(employee["master_id"], field["field_id"], active=False)
                 changed.append(f"Employee Master Data: deactivated {legacy}")
-        add_if_missing(employee, "Bank Name", description="कर्मचारी के बैंक का नाम")
-        add_if_missing(employee, "Branch", description="बैंक शाखा")
-        add_if_missing(employee, "Account Number", description="बैंक खाता संख्या")
-        add_if_missing(employee, "IFSC", description="IFSC Code")
+        add_if_missing(employee, "Bank Name", required=True, description="कर्मचारी के बैंक का नाम — यह field अनिवार्य है।")
+        add_if_missing(employee, "Branch", required=True, description="बैंक शाखा — यह field अनिवार्य है।")
+        add_if_missing(employee, "Account Number", required=True, description="बैंक खाता संख्या — यह field अनिवार्य है।")
+        add_if_missing(employee, "IFSC", required=True, description="IFSC Code — यह field अनिवार्य है।")
 
         # Safety rules for salary/pay calculation. These are enforced for both
         # Admin-owned and User-owned Employee Masters.
@@ -208,19 +239,44 @@ def ensure_standard_masters(service) -> list[str]:
             store.update_field(employee["master_id"], pc["field_id"], required=True, active=True,
                                description="लागू Pay Commission — यह field अनिवार्य है।")
             changed.append("Employee Master Data: Pay Commission made mandatory")
-        basic = employee_fields.get(norm("Basic Pay"))
-        if basic and not basic.get("required"):
-            store.update_field(employee["master_id"], basic["field_id"], required=True, active=True,
-                               description="वर्तमान मूल वेतन — यह field अनिवार्य है।")
-            changed.append("Employee Master Data: Basic Pay made mandatory")
+        # Core employee identity and banking fields are mandatory.
+        mandatory_employee_fields = {
+            "Employee Name": "कर्मचारी का नाम — यह field अनिवार्य है।",
+            "Employee ID": "Employee ID — यह field अनिवार्य है।",
+            "GPF / PRAN Number": "GPF / PRAN Number — यह Master Data field अनिवार्य है।",
+            "Bank Name": "कर्मचारी के बैंक का नाम — यह field अनिवार्य है।",
+            "Branch": "बैंक शाखा — यह field अनिवार्य है।",
+            "Account Number": "बैंक खाता संख्या — यह field अनिवार्य है।",
+            "IFSC": "IFSC Code — यह field अनिवार्य है।",
+            "Pay Commission": "लागू Pay Commission — यह field अनिवार्य है।",
+            "Basic Pay": "वर्तमान मूल वेतन — यह field अनिवार्य है।",
+        }
+        for fname, desc in mandatory_employee_fields.items():
+            f = employee_fields.get(norm(fname))
+            if f and (not f.get("required") or f.get("description") != desc):
+                store.update_field(employee["master_id"], f["field_id"], required=True, active=True, description=desc)
+                changed.append(f"Employee Master Data: {fname} made mandatory")
+
         level = employee_fields.get(norm("Pay Level")) or employee_fields.get(norm("पे लेवल"))
         if level:
             level_options = ["Fixed Pay"] + [f"L-{i}" for i in range(1, 25)]
             if level.get("field_type") != "dropdown" or level.get("options") != level_options:
                 store.update_field(employee["master_id"], level["field_id"], field_type="dropdown",
-                                   options=level_options, active=True,
-                                   description="7th CPC Pay Level. 5th/6th CPC कर्मचारी के लिए इसे खाली रखा जा सकता है।")
+                                   options=level_options, required=True, active=True,
+                                   description="7th CPC Pay Level — यह field अनिवार्य है। 6th/5th CPC के लिए लागू नियम के अनुसार value रखें।")
                 changed.append("Employee Master Data: Pay Level converted to controlled dropdown")
+            elif not level.get("required"):
+                store.update_field(employee["master_id"], level["field_id"], required=True, active=True,
+                                   description="7th CPC Pay Level — यह field अनिवार्य है। 6th/5th CPC के लिए लागू नियम के अनुसार value रखें।")
+                changed.append("Employee Master Data: Pay Level made mandatory")
+
+        # Pay Band and Grade Pay are conditionally mandatory for 6th CPC.
+        for fname, desc in (("Pay Band", "6th Pay Commission में Pay Band अनिवार्य है।"),
+                            ("Grade Pay", "6th Pay Commission में Grade Pay अनिवार्य है।")):
+            f = employee_fields.get(norm(fname))
+            if f and f.get("required"):
+                store.update_field(employee["master_id"], f["field_id"], required=False, active=True, description=desc)
+                changed.append(f"Employee Master Data: {fname} set as conditional mandatory for 6th CPC")
 
     component = find("Component Master Data")
     if component and not is_system_master(component):
@@ -280,7 +336,10 @@ def render_form(service, master: dict, record: dict | None = None):
     for idx, field in enumerate(fields):
         fid = field["field_id"]
         old = (record or {}).get(fid, "")
-        label = field["field_name"] + (" *" if field.get("required") else "")
+        conditional = norm(field.get("field_name")) in {norm("Pay Band"), norm("Grade Pay")} and norm(master.get("master_name")) == norm("Employee Master Data")
+        label = field["field_name"] + (" *" if field.get("required") or conditional else "")
+        if conditional:
+            label += " (6th CPC में अनिवार्य)"
         with columns[idx % 2]:
             typ = str(field.get("field_type", "text")).lower()
             if typ == "dropdown":
