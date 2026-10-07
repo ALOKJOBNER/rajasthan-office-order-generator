@@ -10,6 +10,8 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
+from openpyxl import load_workbook
+from openpyxl.worksheet.datavalidation import DataValidation
 
 PAY_TOKEN = "pay commission"
 SYSTEM_OWNER = "system"
@@ -65,89 +67,124 @@ def convert_value(v, field: dict):
     return s
 
 
-def validate_record(master: dict, values: dict) -> None:
-    fields = active_fields(master)
-    by_name = {norm(f.get("field_name")): f for f in fields}
+def _field(master: dict, name: str):
+    target = norm(name)
+    return next((f for f in active_fields(master) if norm(f.get("field_name")) == target), None)
 
-    # Normal mandatory fields are enforced for every Employee Master record.
-    for field in fields:
+
+def validate_record(master: dict, values: dict) -> None:
+    # Standard mandatory fields are enforced for every user and Admin.
+    for field in active_fields(master):
         if field.get("required") and str(values.get(field["field_id"], "")).strip() == "":
             raise ValueError(f"Mandatory field '{field.get('field_name')}' खाली है।")
 
-    # Employee-specific rules: these fields are required because they are used
-    # as employee identity / salary-calculation inputs.
+    # Employee Master has CPC-dependent mandatory fields.  This is enforced
+    # in both manual entry and Excel import so a malformed user master cannot
+    # reach salary calculations.
     if norm(master.get("master_name")) == norm("Employee Master Data"):
-        always_required = [
-            "Employee Name", "Employee ID", "GPF / PRAN Number",
-            "Bank Name", "Branch", "Account Number", "IFSC",
-            "Pay Commission", "Pay Level", "Basic Pay",
-        ]
-        for name in always_required:
-            field = by_name.get(norm(name))
-            if field and str(values.get(field["field_id"], "")).strip() == "":
-                raise ValueError(f"Employee Master में '{name}' अनिवार्य है।")
+        commission_f = _field(master, "Pay Commission")
+        level_f = _field(master, "Pay Level")
+        basic_f = _field(master, "Basic Pay")
+        band_f = _field(master, "Pay Band")
+        gp_f = _field(master, "Grade Pay")
 
-        # 6th CPC requires both Pay Band and Grade Pay.  They are conditional
-        # mandatory fields, while remaining optional for 5th/7th CPC.
-        pc_field = by_name.get(norm("Pay Commission"))
-        pc_value = str(values.get(pc_field["field_id"], "")).strip() if pc_field else ""
-        if norm(pc_value) == norm("6th Pay Commission"):
-            for name in ("Pay Band", "Grade Pay"):
-                field = by_name.get(norm(name))
-                if field and str(values.get(field["field_id"], "")).strip() == "":
-                    raise ValueError(f"6th Pay Commission के लिए '{name}' अनिवार्य है।")
+        def blank(f):
+            return f and str(values.get(f["field_id"], "")).strip() == ""
+
+        if blank(commission_f):
+            raise ValueError("Employee Master में 'Pay Commission' अनिवार्य है।")
+        if blank(level_f) and "7th pay commission" in norm(values.get(commission_f["field_id"], "")):
+            raise ValueError("7th Pay Commission के लिए 'Pay Level' अनिवार्य है।")
+        if blank(basic_f):
+            raise ValueError("Employee Master में 'Basic Pay' अनिवार्य है।")
+        if "6th pay commission" in norm(values.get(commission_f["field_id"], "")):
+            if blank(band_f):
+                raise ValueError("6th Pay Commission के लिए 'Pay Band' अनिवार्य है।")
+            if blank(gp_f):
+                raise ValueError("6th Pay Commission के लिए 'Grade Pay' अनिवार्य है।")
+
+
 
 
 def make_template(master: dict) -> bytes:
-    """Create an annotated Excel template for Admin and User Master Data."""
     fields = active_fields(master)
-    conditional_6th = {norm("Pay Band"), norm("Grade Pay")} if norm(master.get("master_name")) == norm("Employee Master Data") else set()
-    columns = [
-        f["field_name"] + (" *" if f.get("required") or norm(f.get("field_name")) in conditional_6th else "")
-        for f in fields
-    ]
+    employee = norm(master.get("master_name")) == norm("Employee Master Data")
+    def header_for(f):
+        name = f["field_name"]
+        if f.get("required"):
+            return name + " *"
+        if employee and norm(name) == norm("Pay Level"):
+            return name + " * (7th CPC)"
+        if employee and norm(name) in {norm("Pay Band"), norm("Grade Pay")} :
+            return name + " * (6th CPC)"
+        return name
+    columns = [header_for(f) for f in fields]
     data = pd.DataFrame([{c: "" for c in columns}])
-    definitions = pd.DataFrame([
-        {
-            "Field Name": f["field_name"],
-            "Field Type": f.get("field_type", "text"),
-            "Mandatory": ("Yes — अनिवार्य" if f.get("required") else ("Conditional — 6th CPC में अनिवार्य" if norm(f.get("field_name")) in conditional_6th else "No — वैकल्पिक")),
-            "Description": f.get("description", ""),
-            "Options": ", ".join(map(str, f.get("options", []))),
-        } for f in fields
-    ])
-    instructions = pd.DataFrame({"Master Data Entry Instructions": [
-        f"{master.get('master_name', 'Master Data')} — Excel Template",
-        "जिस Field के नाम के आगे * लगा है, वह अनिवार्य (Mandatory) है।",
-        "अनिवार्य (*) Field खाली छोड़ने पर Record Save/Excel Import नहीं होगा।",
-        "वैकल्पिक Field को आवश्यकता होने पर खाली छोड़ा जा सकता है।",
-        "Field_Definitions sheet में प्रत्येक Field की Mandatory स्थिति और विवरण दिया गया है।",
-        "Pay Commission Master User Excel Template में शामिल नहीं किया जाता; वह Universal/Locked Master है।",
-    ]})
+    definitions = pd.DataFrame(
+        [
+            {
+                "Field Name": f["field_name"],
+                "Required": "अनिवार्य *" if f.get("required") else "वैकल्पिक",
+                "Field Type": f.get("field_type", "text"),
+                "Mandatory Rule": (
+                    "6th CPC में अनिवार्य" if norm(master.get("master_name")) == norm("Employee Master Data") and norm(f.get("field_name")) in {norm("Pay Band"), norm("Grade Pay")}
+                    else "7th CPC में अनिवार्य" if norm(master.get("master_name")) == norm("Employee Master Data") and norm(f.get("field_name")) == norm("Pay Level")
+                    else "अनिवार्य" if f.get("required") else "वैकल्पिक"
+                ),
+                "Description": f.get("description", ""),
+                "Options": ", ".join(map(str, f.get("options", []))),
+            }
+            for f in fields
+        ]
+    )
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="openpyxl") as writer:
         data.to_excel(writer, index=False, sheet_name="Data")
         definitions.to_excel(writer, index=False, sheet_name="Field_Definitions")
+        instructions = pd.DataFrame({"Instructions": [
+            "* लगा Field अनिवार्य है।",
+            "Employee Master में Employee Name, Employee ID, GPF/PRAN, Bank Name, Branch, Account Number, IFSC, Pay Commission और Basic Pay अनिवार्य हैं।",
+            "7th Pay Commission में Pay Level अनिवार्य है।",
+            "6th Pay Commission में Pay Band और Grade Pay अनिवार्य हैं।",
+            "Pay Commission और Pay Level को Excel में लिखें नहीं; dropdown से निर्धारित विकल्प चुनें।",
+            "अनिवार्य field खाली होने पर Excel Import अस्वीकार किया जाएगा।",
+        ]})
         instructions.to_excel(writer, index=False, sheet_name="Instructions")
-        wb = writer.book
-        ws = wb["Data"]
-        from openpyxl.styles import Font, PatternFill, Alignment
-        from openpyxl.comments import Comment
-        mandatory_fill = PatternFill(fill_type="solid", fgColor="FFF2CC")
-        for col_idx, field in enumerate(fields, 1):
-            cell = ws.cell(row=1, column=col_idx)
-            cell.font = Font(bold=True)
-            if field.get("required"):
-                cell.fill = mandatory_fill
-                cell.comment = Comment("अनिवार्य Field: खाली छोड़ने पर Record Save/Excel Import नहीं होगा।", "Office Order Software")
-            ws.column_dimensions[cell.column_letter].width = max(16, min(32, len(str(cell.value)) + 4))
-        for cell in wb["Field_Definitions"][1]:
-            cell.font = Font(bold=True)
-        wsi = wb["Instructions"]
-        wsi.column_dimensions["A"].width = 105
-        for cell in wsi["A"]:
-            cell.alignment = Alignment(wrap_text=True, vertical="top")
-        wsi["A1"].font = Font(bold=True, size=12)
+    out.seek(0)
+    wb = load_workbook(out)
+    ws = wb["Data"]
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
+    ws2 = wb["Field_Definitions"]
+    ws3 = wb["Instructions"]
+
+    # Locate columns by normalized display name, allowing the * marker.
+    colmap = {norm(str(ws.cell(1,c).value).replace(" * (7th CPC)", "").replace(" * (6th CPC)", "").rstrip(" *")): c for c in range(1, ws.max_column+1)}
+    employee = norm(master.get("master_name")) == norm("Employee Master Data")
+    if employee:
+        pc_col = colmap.get(norm("Pay Commission"))
+        level_col = colmap.get(norm("Pay Level"))
+        if pc_col:
+            dv = DataValidation(type="list", formula1='"5th Pay Commission,6th Pay Commission,7th Pay Commission"', allow_blank=False)
+            dv.error = "केवल 5th Pay Commission, 6th Pay Commission या 7th Pay Commission चुनें।"
+            dv.errorTitle = "Invalid Pay Commission"
+            dv.prompt = "सूची से Pay Commission चुनें।"
+            dv.promptTitle = "Pay Commission"
+            ws.add_data_validation(dv); dv.add(f"{ws.cell(2,pc_col).coordinate}:{ws.cell(1000,pc_col).coordinate}")
+        if level_col:
+            dv2 = DataValidation(type="list", formula1='"L-1,L-2,L-3,L-4,L-5,L-6,L-7,L-8,L-9,L-10,L-11,L-12,L-13,L-14,L-15,L-16,L-17,L-18,L-19,L-20,L-21,L-22,L-23,L-24,Fixed Pay"', allow_blank=True)
+            dv2.error = "Pay Level सूची से चुनें।"; dv2.errorTitle = "Invalid Pay Level"
+            dv2.prompt = "7th CPC में Pay Level सूची से चुनें।"; dv2.promptTitle = "Pay Level"
+            ws.add_data_validation(dv2); dv2.add(f"{ws.cell(2,level_col).coordinate}:{ws.cell(1000,level_col).coordinate}")
+
+    for sheet in (ws, ws2, ws3):
+        for col in range(1, sheet.max_column+1):
+            sheet.column_dimensions[chr(64+col) if col <= 26 else "A"].width = 24
+    # Mark mandatory headers visibly.
+    for c in range(1, ws.max_column+1):
+        if "*" in str(ws.cell(1,c).value or ""):
+            ws.cell(1,c).comment = __import__('openpyxl').comments.Comment("यह Field अनिवार्य है। खाली न छोड़ें।", "Office Order Software")
+    wb.save(out)
     return out.getvalue()
 
 
@@ -158,14 +195,11 @@ def parse_excel(upload, master: dict) -> list[dict]:
     by_name = {norm(f["field_name"]): f for f in fields}
     mapping = {}
     for col in df.columns:
-        key = norm(col)
-        # Mandatory template headers are written as "Field Name *". Accept
-        # both marked and legacy/plain headers for backward compatibility.
-        key_plain = key.rstrip("*").strip()
-        if key_plain == "_record_id":
+        key = norm(str(col).replace(" * (7th CPC)", "").replace(" * (6th CPC)", "").rstrip(" *"))
+        if key == "_record_id":
             mapping[col] = "_record_id"
-        elif key_plain in by_name:
-            mapping[col] = by_name[key_plain]
+        elif key in by_name:
+            mapping[col] = by_name[key]
     if not any(isinstance(x, dict) for x in mapping.values()):
         raise ValueError("Excel headers वर्तमान Master के fields से match नहीं करते।")
 
@@ -221,62 +255,70 @@ def ensure_standard_masters(service) -> list[str]:
             if field and field.get("active", True):
                 store.update_field(employee["master_id"], field["field_id"], active=False)
                 changed.append(f"Employee Master Data: deactivated {legacy}")
-        add_if_missing(employee, "Bank Name", required=True, description="कर्मचारी के बैंक का नाम — यह field अनिवार्य है।")
-        add_if_missing(employee, "Branch", required=True, description="बैंक शाखा — यह field अनिवार्य है।")
-        add_if_missing(employee, "Account Number", required=True, description="बैंक खाता संख्या — यह field अनिवार्य है।")
-        add_if_missing(employee, "IFSC", required=True, description="IFSC Code — यह field अनिवार्य है।")
-
-        # Safety rules for salary/pay calculation. These are enforced for both
-        # Admin-owned and User-owned Employee Masters.
-        employee_fields = {norm(f.get("field_name")): f for f in employee.get("fields", [])}
-        gpf = employee_fields.get(norm("GPF / PRAN Number")) or employee_fields.get(norm("GPF Number"))
-        if gpf and not gpf.get("required"):
-            store.update_field(employee["master_id"], gpf["field_id"], required=True, active=True,
-                               description="GPF/PRAN Number — यह Master Data field अनिवार्य है।")
-            changed.append("Employee Master Data: GPF / PRAN Number made mandatory")
-        pc = employee_fields.get(norm("Pay Commission"))
-        if pc and not pc.get("required"):
-            store.update_field(employee["master_id"], pc["field_id"], required=True, active=True,
-                               description="लागू Pay Commission — यह field अनिवार्य है।")
-            changed.append("Employee Master Data: Pay Commission made mandatory")
-        # Core employee identity and banking fields are mandatory.
-        mandatory_employee_fields = {
-            "Employee Name": "कर्मचारी का नाम — यह field अनिवार्य है।",
-            "Employee ID": "Employee ID — यह field अनिवार्य है।",
-            "GPF / PRAN Number": "GPF / PRAN Number — यह Master Data field अनिवार्य है।",
-            "Bank Name": "कर्मचारी के बैंक का नाम — यह field अनिवार्य है।",
-            "Branch": "बैंक शाखा — यह field अनिवार्य है।",
-            "Account Number": "बैंक खाता संख्या — यह field अनिवार्य है।",
-            "IFSC": "IFSC Code — यह field अनिवार्य है।",
-            "Pay Commission": "लागू Pay Commission — यह field अनिवार्य है।",
-            "Basic Pay": "वर्तमान मूल वेतन — यह field अनिवार्य है।",
+        # Required identity/bank/pay fields. Existing fields are upgraded in-place
+        # so both Admin and every user get the same rules.
+        required_fields = {
+            "Employee Name": "कर्मचारी का नाम",
+            "Employee ID": "Employee ID",
+            "GPF / PRAN Number": "GPF / PRAN Number",
+            "Bank Name": "कर्मचारी के बैंक का नाम",
+            "Branch": "बैंक शाखा",
+            "Account Number": "बैंक खाता संख्या",
+            "IFSC": "IFSC Code",
+            "Pay Commission": "वेतन आयोग",
+            "Basic Pay": "मूल वेतन",
         }
-        for fname, desc in mandatory_employee_fields.items():
-            f = employee_fields.get(norm(fname))
-            if f and (not f.get("required") or f.get("description") != desc):
-                store.update_field(employee["master_id"], f["field_id"], required=True, active=True, description=desc)
-                changed.append(f"Employee Master Data: {fname} made mandatory")
+        for fname, desc in required_fields.items():
+            existing = next((f for f in employee.get("fields", []) if norm(f.get("field_name")) == norm(fname)), None)
+            if existing:
+                if not existing.get("required"):
+                    store.update_field(employee["master_id"], existing["field_id"], required=True, active=True)
+                    changed.append(f"Employee Master Data: {fname} made mandatory")
+            else:
+                store.add_field(employee["master_id"], fname, "text", True, True, [], desc)
+                changed.append(f"Employee Master Data: +{fname}")
 
-        level = employee_fields.get(norm("Pay Level")) or employee_fields.get(norm("पे लेवल"))
+        pc = next((f for f in employee.get("fields", []) if norm(f.get("field_name")) == norm("Pay Commission")), None)
+        if pc:
+            if pc.get("field_type") != "dropdown" or pc.get("options") != ["5th Pay Commission", "6th Pay Commission", "7th Pay Commission"]:
+                store.update_field(employee["master_id"], pc["field_id"], field_type="dropdown", options=["5th Pay Commission", "6th Pay Commission", "7th Pay Commission"], required=True, active=True)
+                changed.append("Employee Master Data: Pay Commission dropdown fixed")
+        level = next((f for f in employee.get("fields", []) if norm(f.get("field_name")) == norm("Pay Level")), None)
+        if level and (level.get("field_type") != "dropdown" or not level.get("options")):
+            store.update_field(employee["master_id"], level["field_id"], field_type="dropdown", options=[f"L-{i}" for i in range(1,25)] + ["Fixed Pay"], required=False, active=True)
+            changed.append("Employee Master Data: Pay Level dropdown fixed")
+
+        # Normalize legacy user records such as L14/L12 into the canonical
+        # Universal Pay Commission format L-14/L-12.  This prevents a new
+        # user's valid level from falling through to the Fixed Pay fallback.
         if level:
-            level_options = ["Fixed Pay"] + [f"L-{i}" for i in range(1, 25)]
-            if level.get("field_type") != "dropdown" or level.get("options") != level_options:
-                store.update_field(employee["master_id"], level["field_id"], field_type="dropdown",
-                                   options=level_options, required=True, active=True,
-                                   description="7th CPC Pay Level — यह field अनिवार्य है। 6th/5th CPC के लिए लागू नियम के अनुसार value रखें।")
-                changed.append("Employee Master Data: Pay Level converted to controlled dropdown")
-            elif not level.get("required"):
-                store.update_field(employee["master_id"], level["field_id"], required=True, active=True,
-                                   description="7th CPC Pay Level — यह field अनिवार्य है। 6th/5th CPC के लिए लागू नियम के अनुसार value रखें।")
-                changed.append("Employee Master Data: Pay Level made mandatory")
-
-        # Pay Band and Grade Pay are conditionally mandatory for 6th CPC.
-        for fname, desc in (("Pay Band", "6th Pay Commission में Pay Band अनिवार्य है।"),
-                            ("Grade Pay", "6th Pay Commission में Grade Pay अनिवार्य है।")):
-            f = employee_fields.get(norm(fname))
-            if f and f.get("required"):
-                store.update_field(employee["master_id"], f["field_id"], required=False, active=True, description=desc)
-                changed.append(f"Employee Master Data: {fname} set as conditional mandatory for 6th CPC")
+            try:
+                rows = store.load_records(employee["master_id"]) or []
+                commission_field = pc.get("field_id") if pc else None
+                updates = 0
+                for row in rows:
+                    raw_level = str(row.get(level["field_id"], "") or "").strip()
+                    commission = str(row.get(commission_field, "") or "").strip() if commission_field else ""
+                    if "7th" not in norm(commission):
+                        continue
+                    canonical = raw_level
+                    compact = raw_level.upper().replace(" ", "")
+                    if compact in {"FIXEDPAY", "FIXED-PAY", "FIXED"}:
+                        canonical = "Fixed Pay"
+                    else:
+                        import re
+                        m = re.fullmatch(r"L-?(\d{1,2})", compact)
+                        if m and 1 <= int(m.group(1)) <= 24:
+                            canonical = f"L-{int(m.group(1))}"
+                        elif compact.endswith("-FIXED") or compact.endswith("_FIXED"):
+                            canonical = "Fixed Pay"
+                    if canonical != raw_level and canonical:
+                        store.update_record(employee["master_id"], row.get("_record_id"), {level["field_id"]: canonical})
+                        updates += 1
+                if updates:
+                    changed.append(f"Employee Master Data: normalized {updates} Pay Level records")
+            except Exception as exc:
+                changed.append(f"Employee Master Data: Pay Level normalization skipped ({type(exc).__name__})")
 
     component = find("Component Master Data")
     if component and not is_system_master(component):
@@ -336,10 +378,7 @@ def render_form(service, master: dict, record: dict | None = None):
     for idx, field in enumerate(fields):
         fid = field["field_id"]
         old = (record or {}).get(fid, "")
-        conditional = norm(field.get("field_name")) in {norm("Pay Band"), norm("Grade Pay")} and norm(master.get("master_name")) == norm("Employee Master Data")
-        label = field["field_name"] + (" *" if field.get("required") or conditional else "")
-        if conditional:
-            label += " (6th CPC में अनिवार्य)"
+        label = field["field_name"] + (" *" if field.get("required") else "")
         with columns[idx % 2]:
             typ = str(field.get("field_type", "text")).lower()
             if typ == "dropdown":
@@ -631,7 +670,7 @@ def render(context):
 
     # One-time, user-scoped migration. A transient migration error must never
     # block the page or hide the Dashboard button.
-    migration_key = f"md_standard_migration_v2_{user}"
+    migration_key = f"md_standard_migration_{user}"
     if not st.session_state.get(migration_key):
         try:
             changes = ensure_standard_masters(service)
@@ -676,8 +715,6 @@ def render(context):
     fields = active_fields(master)
 
     st.markdown(f"### {master['master_name']}  \n**Records:** {len(records)} &nbsp;&nbsp; **Fields:** {len(fields)}")
-
-    st.info("ℹ️ **अनिवार्य Field:** जिस Field के नाम के आगे *** लगा है वह अनिवार्य है। अनिवार्य Field खाली होने पर Record Save या Excel Import नहीं होगा। Excel Template में भी * और Mandatory स्थिति दी गई है।")
 
     # Component Master gets a clear Elementary/Secondary view without making
     # Component Level mandatory; only Component Name is mandatory.
