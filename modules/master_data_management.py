@@ -72,25 +72,51 @@ def validate_record(master: dict, values: dict) -> None:
 
 
 def make_template(master: dict) -> bytes:
+    """Create an annotated Excel template for Admin and User Master Data."""
     fields = active_fields(master)
-    columns = [f["field_name"] for f in fields]
+    columns = [f["field_name"] + (" *" if f.get("required") else "") for f in fields]
     data = pd.DataFrame([{c: "" for c in columns}])
-    definitions = pd.DataFrame(
-        [
-            {
-                "Field Name": f["field_name"],
-                "Field Type": f.get("field_type", "text"),
-                "Mandatory": "Yes" if f.get("required") else "No",
-                "Description": f.get("description", ""),
-                "Options": ", ".join(map(str, f.get("options", []))),
-            }
-            for f in fields
-        ]
-    )
+    definitions = pd.DataFrame([
+        {
+            "Field Name": f["field_name"],
+            "Field Type": f.get("field_type", "text"),
+            "Mandatory": "Yes — अनिवार्य" if f.get("required") else "No — वैकल्पिक",
+            "Description": f.get("description", ""),
+            "Options": ", ".join(map(str, f.get("options", []))),
+        } for f in fields
+    ])
+    instructions = pd.DataFrame({"Master Data Entry Instructions": [
+        f"{master.get('master_name', 'Master Data')} — Excel Template",
+        "जिस Field के नाम के आगे * लगा है, वह अनिवार्य (Mandatory) है।",
+        "अनिवार्य (*) Field खाली छोड़ने पर Record Save/Excel Import नहीं होगा।",
+        "वैकल्पिक Field को आवश्यकता होने पर खाली छोड़ा जा सकता है।",
+        "Field_Definitions sheet में प्रत्येक Field की Mandatory स्थिति और विवरण दिया गया है।",
+        "Pay Commission Master User Excel Template में शामिल नहीं किया जाता; वह Universal/Locked Master है।",
+    ]})
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="openpyxl") as writer:
         data.to_excel(writer, index=False, sheet_name="Data")
         definitions.to_excel(writer, index=False, sheet_name="Field_Definitions")
+        instructions.to_excel(writer, index=False, sheet_name="Instructions")
+        wb = writer.book
+        ws = wb["Data"]
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.comments import Comment
+        mandatory_fill = PatternFill(fill_type="solid", fgColor="FFF2CC")
+        for col_idx, field in enumerate(fields, 1):
+            cell = ws.cell(row=1, column=col_idx)
+            cell.font = Font(bold=True)
+            if field.get("required"):
+                cell.fill = mandatory_fill
+                cell.comment = Comment("अनिवार्य Field: खाली छोड़ने पर Record Save/Excel Import नहीं होगा।", "Office Order Software")
+            ws.column_dimensions[cell.column_letter].width = max(16, min(32, len(str(cell.value)) + 4))
+        for cell in wb["Field_Definitions"][1]:
+            cell.font = Font(bold=True)
+        wsi = wb["Instructions"]
+        wsi.column_dimensions["A"].width = 105
+        for cell in wsi["A"]:
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+        wsi["A1"].font = Font(bold=True, size=12)
     return out.getvalue()
 
 
@@ -102,10 +128,13 @@ def parse_excel(upload, master: dict) -> list[dict]:
     mapping = {}
     for col in df.columns:
         key = norm(col)
-        if key == "_record_id":
+        # Mandatory template headers are written as "Field Name *". Accept
+        # both marked and legacy/plain headers for backward compatibility.
+        key_plain = key.rstrip("*").strip()
+        if key_plain == "_record_id":
             mapping[col] = "_record_id"
-        elif key in by_name:
-            mapping[col] = by_name[key]
+        elif key_plain in by_name:
+            mapping[col] = by_name[key_plain]
     if not any(isinstance(x, dict) for x in mapping.values()):
         raise ValueError("Excel headers वर्तमान Master के fields से match नहीं करते।")
 
@@ -165,6 +194,33 @@ def ensure_standard_masters(service) -> list[str]:
         add_if_missing(employee, "Branch", description="बैंक शाखा")
         add_if_missing(employee, "Account Number", description="बैंक खाता संख्या")
         add_if_missing(employee, "IFSC", description="IFSC Code")
+
+        # Safety rules for salary/pay calculation. These are enforced for both
+        # Admin-owned and User-owned Employee Masters.
+        employee_fields = {norm(f.get("field_name")): f for f in employee.get("fields", [])}
+        gpf = employee_fields.get(norm("GPF / PRAN Number")) or employee_fields.get(norm("GPF Number"))
+        if gpf and not gpf.get("required"):
+            store.update_field(employee["master_id"], gpf["field_id"], required=True, active=True,
+                               description="GPF/PRAN Number — यह Master Data field अनिवार्य है।")
+            changed.append("Employee Master Data: GPF / PRAN Number made mandatory")
+        pc = employee_fields.get(norm("Pay Commission"))
+        if pc and not pc.get("required"):
+            store.update_field(employee["master_id"], pc["field_id"], required=True, active=True,
+                               description="लागू Pay Commission — यह field अनिवार्य है।")
+            changed.append("Employee Master Data: Pay Commission made mandatory")
+        basic = employee_fields.get(norm("Basic Pay"))
+        if basic and not basic.get("required"):
+            store.update_field(employee["master_id"], basic["field_id"], required=True, active=True,
+                               description="वर्तमान मूल वेतन — यह field अनिवार्य है।")
+            changed.append("Employee Master Data: Basic Pay made mandatory")
+        level = employee_fields.get(norm("Pay Level")) or employee_fields.get(norm("पे लेवल"))
+        if level:
+            level_options = ["Fixed Pay"] + [f"L-{i}" for i in range(1, 25)]
+            if level.get("field_type") != "dropdown" or level.get("options") != level_options:
+                store.update_field(employee["master_id"], level["field_id"], field_type="dropdown",
+                                   options=level_options, active=True,
+                                   description="7th CPC Pay Level. 5th/6th CPC कर्मचारी के लिए इसे खाली रखा जा सकता है।")
+                changed.append("Employee Master Data: Pay Level converted to controlled dropdown")
 
     component = find("Component Master Data")
     if component and not is_system_master(component):
@@ -343,7 +399,6 @@ def render_admin_pay_commission_master(service):
                 if st.button("हाँ, Delete करें", type="primary", use_container_width=True, key="admin_pc_delete_confirm"):
                     data = [r for r in records if r.get("_record_id") != pending_delete]
                     service.store.save_records(master["master_id"], data)
-                    service.sync_universal_pay_commission(master, data)
                     st.session_state.pop("admin_pc_delete_pending", None)
                     st.session_state.pop(mode_key, None)
                     st.success("Pay Commission record delete हो गया।")
@@ -424,7 +479,6 @@ def render_admin_pay_commission_master(service):
                 rec["_updated_at"] = datetime.now().isoformat(timespec="seconds")
                 new_records.append(rec)
             service.store.save_records(master["master_id"], new_records)
-            service.sync_universal_pay_commission(master, new_records)
             st.session_state.pop(mode_key, None)
             st.success("Pay Commission Master record सफलतापूर्वक save/update हो गया।")
             st.rerun()
@@ -518,7 +572,7 @@ def render(context):
 
     # One-time, user-scoped migration. A transient migration error must never
     # block the page or hide the Dashboard button.
-    migration_key = f"md_standard_migration_{user}"
+    migration_key = f"md_standard_migration_v2_{user}"
     if not st.session_state.get(migration_key):
         try:
             changes = ensure_standard_masters(service)
@@ -563,6 +617,8 @@ def render(context):
     fields = active_fields(master)
 
     st.markdown(f"### {master['master_name']}  \n**Records:** {len(records)} &nbsp;&nbsp; **Fields:** {len(fields)}")
+
+    st.info("ℹ️ **अनिवार्य Field:** जिस Field के नाम के आगे *** लगा है वह अनिवार्य है। अनिवार्य Field खाली होने पर Record Save या Excel Import नहीं होगा। Excel Template में भी * और Mandatory स्थिति दी गई है।")
 
     # Component Master gets a clear Elementary/Secondary view without making
     # Component Level mandatory; only Component Name is mandatory.
