@@ -1,0 +1,168 @@
+[
+    {
+        "master_id": "MD-BC089FE57A92",
+        "master_name": "Pay Commission Master [UNIVERSAL / LOCKED]",
+        "description": "Universal system master. User cannot create, rename, edit, delete, or manage its fields.",
+        "owner_type": "system",
+        "status": "active",
+        "fields": [
+            {
+                "field_id": "FLD-6A8E91819639",
+                "field_name": "record_type",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 1
+            },
+            {
+                "field_id": "FLD-10C40AD7CE9D",
+                "field_name": "pay_commission",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 2
+            },
+            {
+                "field_id": "FLD-58154056C7CA",
+                "field_name": "pay_band",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 3
+            },
+            {
+                "field_id": "FLD-60F772EE2807",
+                "field_name": "grade_pay",
+                "field_type": "number",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 4
+            },
+            {
+                "field_id": "FLD-E27BA3F17638",
+                "field_name": "pay_level",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 5
+            },
+            {
+                "field_id": "FLD-B8C5E8A6587D",
+                "field_name": "pay_matrix_cells",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 6
+            },
+            {
+                "field_id": "FLD-37071BE0CBDD",
+                "field_name": "effective_date",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 7
+            },
+            {
+                "field_id": "FLD-11F6FFA93638",
+                "field_name": "city_class",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 8
+            },
+            {
+                "field_id": "FLD-BB7583B64C20",
+                "field_name": "da_rate",
+                "field_type": "decimal",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 9
+            },
+            {
+                "field_id": "FLD-FC4DBACFEAD6",
+                "field_name": "cash_da_rate",
+                "field_type": "decimal",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 10
+            },
+            {
+                "field_id": "FLD-9259D65D39D3",
+                "field_name": "gpf_credit",
+                "field_type": "boolean",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 11
+            },
+            {
+                "field_id": "FLD-41334B68DF13",
+                "field_name": "hra_rate",
+                "field_type": "decimal",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 12
+            },
+            {
+                "field_id": "FLD-570516734CFB",
+                "field_name": "increment_rule",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 13
+            },
+            {
+                "field_id": "FLD-69A0C3FDAD23",
+                "field_name": "increment_date_rule",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 14
+            },
+            {
+                "field_id": "FLD-48CD0DA03A6B",
+                "field_name": "source_status",
+                "field_type": "text",
+                "required": false,
+                "active": true,
+                "description": "",
+                "options": [],
+                "field_order": 15
+            }
+        ],
+        "created_at": "2026-10-06T13:44:15",
+        "updated_at": "2026-10-06T13:44:15",
+        "engine_version": "2.0.0",
+        "updated_from_seed": "2026-10-06.1",
+        "locked": true,
+        "data_seed_version": "2026-10-06.1",
+        "allow_seed_refresh": true
+    }
+]
