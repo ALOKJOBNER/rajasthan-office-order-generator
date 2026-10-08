@@ -784,11 +784,17 @@ def render(context):
             if st.session_state.get(pending_key, {}).get("sig") != signature:
                 st.session_state[pending_key] = {"sig": signature, "rows": parse_excel(io.BytesIO(uploaded.getvalue()), master)}
             rows = st.session_state[pending_key]["rows"]
+            # IMPORTANT: Excel Import Mode is a Streamlit widget and must NOT
+            # reuse the session-state key used by Add/Edit/Delete form mode.
+            # Reusing md_mode_* makes Streamlit treat the later CRUD state
+            # assignment as an attempt to modify an already-instantiated widget,
+            # causing StreamlitWidgetAlreadyInstantiatedError.
+            excel_mode_key = f"md_excel_mode_{master['master_id']}"
             mode = st.radio(
                 "Excel Import Mode",
                 ["Existing data में Add / Update करें", "Existing data हटाकर Replace करें"],
                 horizontal=True,
-                key=f"md_mode_{master['master_id']}",
+                key=excel_mode_key,
             )
             if st.button("✅ Excel Data लागू करें", type="primary", key=f"md_apply_{master['master_id']}"):
                 old = deepcopy(service.store.load_records(master["master_id"]))
